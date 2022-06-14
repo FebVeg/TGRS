@@ -9,8 +9,8 @@ Add-Type                -AssemblyName       System.Windows.Forms
 Add-type                -AssemblyName       System.Drawing
 
 
-$telegram_TOKEN             = "TOKEN"  # your API Token
-$telegram_ID                = "ID"     # your Telegram ID
+$telegram_TOKEN             = "@TOKEN"  # your API Token
+$telegram_ID                = "@ID"     # your Telegram ID
 $api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'               -f $telegram_TOKEN
 $api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'              -f $telegram_TOKEN
 $api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='         -f $telegram_TOKEN
