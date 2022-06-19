@@ -124,9 +124,9 @@ function checkAdminRights()
     $elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent())
     $elevated = $elevated.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     if ($elevated) {
-        sendMessage ($env:USERNAME + " is an Administrator")
+        return ($env:USERNAME + " is an Administrator")
     } else {
-        sendMessage ($env:USERNAME + " is not an Administrator")
+        return ($env:USERNAME + " is not an Administrator")
     }
 }
 
