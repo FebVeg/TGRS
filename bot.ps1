@@ -1,61 +1,62 @@
 ﻿
 # Send PowerShell commands over the Internet to your PC via Telegram
 
-Clear-Host
+Clear-Host  # Clear the shell
 
-Set-PSReadlineOption    -HistorySaveStyle   SaveNothing
-Set-Location            -Path               $env:USERPROFILE
-Add-Type                -AssemblyName       System.Windows.Forms
-Add-type                -AssemblyName       System.Drawing
- 
-$telegram_TOKEN             = "@TOKEN"  # your API Token    (without the "@")
-$telegram_ID                = "@ID"     # your Telegram ID  (without the "@")
-$api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'               -f $telegram_TOKEN
-$api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'              -f $telegram_TOKEN
-$api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='         -f $telegram_TOKEN
-$api_download_file          = 'https://api.telegram.org/file/bot{0}/'                    -f $telegram_TOKEN
-$api_upload_file            = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $telegram_TOKEN, $telegram_ID
-$cache_file                 = '{0}\ps_cache'                                             -f $env:LOCALAPPDATA
+Set-PSReadlineOption    -HistorySaveStyle   SaveNothing             # Do not save commands run in this powershell session
+Set-Location            -Path               $env:USERPROFILE        # Set the user profile location as default location
+Add-Type                -AssemblyName       System.Windows.Forms    # Adds a Microsoft .NET class to a PowerShell session
+Add-type                -AssemblyName       System.Drawing          # Adds a Microsoft .NET class to a PowerShell session
+
+$tTOKEN                     = "@TOKEN"  # your API Token    (without the "@")
+$tID                        = "@ID"     # your Telegram ID  (without the "@")
+$api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'                  -f $tTOKEN
+$api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'                 -f $tTOKEN
+$api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='            -f $tTOKEN
+$api_download_file          = 'https://api.telegram.org/file/bot{0}/'                       -f $tTOKEN
+$api_upload_file            = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}'    -f $tTOKEN, $tID
+$cache_file                 = '{0}\ps_cache'                                                -f $env:LOCALAPPDATA
 $wait                       =  1000
 $Global:ProgressPreference  = 'SilentlyContinue'
 
 
 function splitOutput ($output)
-# The "splitOutput" function takes as a parameter a long text message that goes beyond 4096 characters. 
-# Divide the characters and create blocks of 4096 letters. 
+# The "splitOutput" function takes as a parameter a long text message that goes beyond 4096 characters.
+# Divide the characters and create blocks of 4096 letters.
 # The return of the function is an array.
 {
-    if ($output.Length -gt 4096) {
+    if ($output.Length -gt 4096)    # If the output incoming string is greater than 4096 chars
+    {
         Write-Host "Separation for every 4096 characters of the input output..."
     }
 
-    $output_splitted        = $output -split ""
-    $temp_part_of_output    = ""
-    $array_of_output_parts  = @()
-    $counter                = 0
+    $output_splitted        = $output -split ""             # Split every character from the incoming output
+    $temp_part_of_output    = ""                            # Set a temporary block for save chars into it
+    $array_of_output_parts  = @()                           # Set an array that it will used for saving multipart strings
+    $counter                = 0                             # Set a counter to 0
 
     Write-Host "Working on it..."
 
-    foreach ($char in $output_splitted) 
+    foreach ($char in $output_splitted)                     # For every character inside the incoming output
     {
-        if ($counter -eq 4096) 
+        if ($counter -eq 4096)                              # If the counter used to verify the cycle has exceeded 4096 times the job
         {
             Write-Host "Creating a block..."
-            $array_of_output_parts += $temp_part_of_output
+            $array_of_output_parts += $temp_part_of_output  # Pass to the array the block
             Write-Host "Block created..."
-            $temp_part_of_output = ""
-            $counter = 0
+            $temp_part_of_output = ""                       # Clears the temporary variable used to insert the selected characters
+            $counter = 0                                    # Set the counter to 0
         }
 
-        $temp_part_of_output += $char
+        $temp_part_of_output += $char                       # Pass into the temporary variable the character
         $counter += 1
     }
     
     Write-Host "Create the last block..."
-    $array_of_output_parts += $temp_part_of_output
+    $array_of_output_parts += $temp_part_of_output          # Add to the array the last block not handled because not greater than 4096 chars
     
     Write-Host "The output is ready to be sent"
-    return $array_of_output_parts
+    return $array_of_output_parts                           # return a string object
 }
 
 
@@ -182,8 +183,8 @@ function sendMessage ($output, $message_id)
     Write-Host "Preparing for sending the output..."
     
     $MessageToSend = New-Object psobject
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id'                    -Value $telegram_ID
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content'            -Value $true
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id'                    -Value $tID
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content'            -Value $false
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'disable_web_page_preview'   -Value $false
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode'                 -Value "html"
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'reply_to_message_id'        -Value $message_id
@@ -233,9 +234,9 @@ function commandListener
 
             if ((Get-Content -Path $cache_file)[-1] -notmatch $message_id)              # Check if the last record of the cache file is not the message_id (this prevent multi-executions)
             {
-                Write-Host ($telegram_ID + " of the verified message: " + $message_id)
+                Write-Host ($tID + " of the verified message: " + $message_id)
                 Add-Content -Path $cache_file -Value $message_id -Force                 # Put in the cache file the message_id for saving it
-                if ($user_id -match $telegram_ID)                                       # Check if the sender ID is your Telegram ID
+                if ($user_id -match $tID)                                       # Check if the sender ID is your Telegram ID
                 {
                     Write-Host ("Username verified: " + $username)
                     if ($text -match "exit")                                            # If the message is "exit" than close the powershell session
