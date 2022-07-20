@@ -2,7 +2,6 @@
 # Send PowerShell commands over the Internet to your PC via Telegram
 
 Clear-Host  # Clear the shell
-
 Set-PSReadlineOption    -HistorySaveStyle   SaveNothing             # Do not save commands run in this powershell session
 Set-Location            -Path               $env:USERPROFILE        # Set the user profile location as default location
 Add-Type                -AssemblyName       System.Windows.Forms    # Adds a Microsoft .NET class to a PowerShell session
@@ -10,6 +9,7 @@ Add-type                -AssemblyName       System.Drawing          # Adds a Mic
 
 $tTOKEN                     = "@TOKEN"  # your API Token    (without the "@")
 $tID                        = "@ID"     # your Telegram ID  (without the "@")
+
 $api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'                  -f $tTOKEN
 $api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'                 -f $tTOKEN
 $api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='            -f $tTOKEN
@@ -165,26 +165,22 @@ function commandListener
             Write-Host $recovered_data
             
             Write-Host "Check for a new incoming command..."
-            if ((Get-Content -Path $cache_file)[-1] -notmatch $message_id)
-            {
+            if ((Get-Content -Path $cache_file)[-1] -notmatch $message_id) {
                 Write-Host "A new command has been discovered! [$text]"
 
                 Write-Host "Saving the message_id [$message_id] to the cache file..."
                 Add-Content -Path $cache_file -Value $message_id -Force
                 
                 Write-Host "Checking for the validation of the user ID..."
-                if ($user_id -match $tID)
-                {
+                if ($user_id -match $tID) {
                     Write-Host "User ID has been verified [$user_id]"
-                    if ($text -match "exit")
-                    {
+                    if ($text -match "exit") {
                         Write-Host "Connection closure..."
                         exit
                     }
                     
                     Write-Host "Checking the length of the command..."
-                    if ($text.Length -gt 0)
-                    {
+                    if ($text.Length -gt 0) {
                         try {
                             Write-Host "Executing it..."
                             $output = Invoke-Expression -Command $text
@@ -201,18 +197,15 @@ function commandListener
                         $output = splitOutput $output
                         
                         Write-Host "Send to Telegram all blocks returned from the split function..."
-                        foreach ($block in $output)
-                        {
+                        foreach ($block in $output) {
                             Write-Host "Converting to string the splitted block..."
                             $block = $block | Out-String
 
                             Write-Host "Checking if the block size is major than 2..."
-                            if ($block.Length -gt 2)
-                            {
+                            if ($block.Length -gt 2) {
                                 Write-Host "Send the data to the message sending function..."
                                 sendMessage $block $message_id
-                            } 
-                            else {
+                            } else {
                                 Write-Host "Send the data to the message sending function..."
                                 sendMessage "No Output Data" $message_id
                             }
@@ -232,8 +225,7 @@ function commandListener
                         Write-Host "Send these informations to the download file function..."
                         downloadDocument $file_id $file_name
                     }
-                } 
-                else {
+                } else {
                     $unauth_user_found = ("Unauthorized user found! " + $user_id)
                     Write-Host $unauth_user_found
                     sendMessage $unauth_user_found
