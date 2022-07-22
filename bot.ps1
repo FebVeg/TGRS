@@ -258,6 +258,7 @@ function commandListener
 
             if ($wait -eq 15000) {
                 saveLocalLogs "log" "The timer has reached the maximum of its default value, I reset it to 1000ms..."
+                sendMessage "[heartbeat]"
                 $wait = 1000
             } else {
                 $wait = $wait + 100
