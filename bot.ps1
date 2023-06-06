@@ -63,7 +63,7 @@ function sendDocument ($file)
 }
 
 
-function sendMessage ($output, $message_id)
+function sendMessage ($output)
 # The "sendMessage" function takes as parameters the output of the command executed and the ID of the incoming message to reply to it. 
 # To send the output as a Telegram message, the function creates a psobject object and constructs it by adding new members and member types. 
 # The message will then be sent to a JSON object. 
@@ -74,7 +74,6 @@ function sendMessage ($output, $message_id)
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content'            -Value $false
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'disable_web_page_preview'   -Value $false
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode'                 -Value "html"
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'reply_to_message_id'        -Value $message_id
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text'                       -Value ("<pre>" + $output + "</pre>")
     $MessageToSend = $MessageToSend | ConvertTo-Json # Convert the message created to a JSON format
 
@@ -119,11 +118,7 @@ function commandListener
 
                         foreach ($block in $output_splitted) {
                             $block = $block | Out-String
-                            if ($block.Length -gt 2) {
-                                sendMessage $block $message_id
-                            } else {
-                                sendMessage "No Output Data" $message_id
-                            }
+                            sendMessage $block
                         }
                     }
                     if ($document) {
