@@ -74,7 +74,7 @@ function sendMessage ($output)
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content'            -Value $false
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'disable_web_page_preview'   -Value $false
     $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode'                 -Value "html"
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text'                       -Value ("<code>" + $output + "</code>")
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text'                       -Value ("<pre>" + $output + "</pre>")
     $MessageToSend = $MessageToSend | ConvertTo-Json # Convert the message created to a JSON format
 
     try {
