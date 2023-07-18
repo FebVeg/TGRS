@@ -4,8 +4,6 @@
 Clear-Host  # Clear the shell
 Set-PSReadlineOption    -HistorySaveStyle   SaveNothing             # Do not save commands run in this powershell session
 Set-Location            -Path               $env:USERPROFILE        # Set location to the user's folder
-Add-Type                -AssemblyName       System.Windows.Forms    # Adds a Microsoft .NET class to a PowerShell session
-Add-type                -AssemblyName       System.Drawing          # Adds a Microsoft .NET class to a PowerShell session
 
 $api_token                  = "@TOKEN"
 $telegram_id                = "@ID"
