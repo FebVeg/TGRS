@@ -117,8 +117,6 @@ function SendMessage($output)
 }
 
 
-
-
 function CheckRequiredParameters($CommandString)
 {
     # Dividi la stringa del comando in un array di parole
