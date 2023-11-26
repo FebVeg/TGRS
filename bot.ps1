@@ -129,11 +129,16 @@ function CheckRequiredParameters($CommandString)
     # Il primo elemento è il nome del comando
     $commandName = $commandParts[0]
 
+    # Verifica se il comando è un alias
+    if ((Get-Command -Name $commandName).CommandType -eq "Alias") {
+        # Recupera il comando associato all'alias
+        $commandName = (Get-Alias -Name $commandName).Definition
+    }
+
     # Verifica se è un cmdlet
-    if ((Get-Command $commandName).CommandType -eq 'Cmdlet') {
+    if ((Get-Command -Name $commandName).CommandType -eq 'Cmdlet') {
         # Ottengo i parametri obbligatori per il comando
         $requiredParameters = Get-Help -Name $commandName -Parameter * -ErrorAction SilentlyContinue | Where-Object { $_.Required -eq $true -and $_.Position -eq 0 } | Select-Object -ExpandProperty Name
-
         if ($requiredParameters.Count -eq 0) {
             Log "Il comando $commandName non ha parametri obbligatori."
             return $true
@@ -217,15 +222,11 @@ function CommandListener
                             if ($text.Length -gt 0) {
                                 try {
                                     if (CheckRequiredParameters $text) {
-                                        Write-Host "1"
                                         $output = Invoke-Expression -Command $text | Out-String
-                                        Write-Host "2"
                                     } else {
-                                        Write-Host "3"
                                         continue
                                     }
                                 } catch {
-                                    Write-Host "4"
                                     $output = $Error[0] | Out-String
                                 }
         
