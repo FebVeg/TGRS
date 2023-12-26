@@ -191,43 +191,42 @@ function CommandListener
                     $uname      = $message.chat.username
                     $text       = $message.text
                     $document   = $message.document
-                    
-                    # Gestione comandi personalizzati
-                    if ($text.Length -gt 0) {
-                        $check_command = $text.Split()
-                        if ($check_command[0] -match "SET") {
-                            # Se il comando è SET ALL imposta tutti gli host connessi a ricevere ed eseguire i comandi
-                            if ($check_command[1] -match "ALL") {
-                                $hostname = $hostia
-                                SendMessage "Computer pronto a ricevere istruzioni"
-                            } else {
-                                # Se il comando è SET <hostname> imposta solo lui a rispondere ai comandi
-                                $hostname = $check_command[1]
-                                if ($env:COMPUTERNAME -match $hostname) {
-                                    SendMessage "Computer pronto a ricevere istruzioni"
-                                }
-                            }
-                            continue
-                        }
-                        
-                        # Se il comando è ONLINE richiedi agli host se sono operativi e pronti
-                        if ($check_command[0] -match "ONLINE") {
-                            SendMessage "Computer operativo"
-                            continue
-                        }
-
-                        # Se il comando è WHOIS richiedi agli host chi sta ricevendo i comandi
-                        if ($check_command[0] -match "WHOIS") {
-                            if ($hostname -match $hostia) {
-                                SendMessage "Io sono operativo!"
-                                continue
-                            }
-                        }
-                    }
         
                     if ($hostname -match $hostia) {
                         if ($user_id -match $telegram_id) {
+                            # Gestione comandi personalizzati
                             if ($text.Length -gt 0) {
+                                $check_command = $text.Split()
+                                if ($check_command[0] -match "set") {
+                                    # Se il comando è SET ALL imposta tutti gli host connessi a ricevere ed eseguire i comandi
+                                    if ($check_command[1] -match "all") {
+                                        $hostname = $hostia
+                                        SendMessage "Computer pronto a ricevere istruzioni"
+                                    } else {
+                                        # Se il comando è SET <hostname> imposta solo lui a rispondere ai comandi
+                                        $hostname = $check_command[1]
+                                        if ($env:COMPUTERNAME -match $hostname) {
+                                            SendMessage "Computer pronto a ricevere istruzioni"
+                                        }
+                                    }
+                                    continue
+                                }
+                                
+                                # Se il comando è ONLINE richiedi agli host se sono operativi e pronti
+                                if ($check_command[0] -match "online") {
+                                    SendMessage "Questo computer è operativo"
+                                    continue
+                                }
+
+                                # Se il comando è WHOIS richiedi agli host chi sta ricevendo i comandi
+                                if ($check_command[0] -match "whois") {
+                                    if ($hostname -match $hostia) {
+                                        SendMessage "Io sono operativo!"
+                                        continue
+                                    }
+                                }
+                                
+                                # Esecuzione del comando
                                 try {
                                     if (CheckRequiredParameters $text) {
                                         $output = Invoke-Expression -Command $text | Out-String
@@ -251,19 +250,21 @@ function CommandListener
                                     Start-Sleep -Milliseconds 300
                                     SendMessage "Comando eseguito"
                                 }
+
                             }
 
+                            # Se il messaggio contiene un file
                             if ($document) {
                                 $file_id   = $document.file_id
                                 $file_name = $document.file_name
                                 DownloadFile $file_id $file_name
                             }
                         } else {
-                            $unauth_user_found = ("L'utente [" + $user_id + "] " + $uname + " ha provato ad utilizzare il bot eseguendo questa azione: [" + $text + "]")
+                            $unauth_user_found = ("L'utente [" + $user_id + "] @" + $uname + " ha provato ad utilizzare il bot eseguendo questa azione: [" + $text + "]")
                             SendMessage $unauth_user_found
                         }
                     }
-                    $wait = 900
+                    $wait = 500
             }
 
             if ($wait -eq 5000) {
